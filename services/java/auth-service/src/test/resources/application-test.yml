@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: auth-service-test
+  
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  
+  flyway:
+    enabled: false
+
+  redis:
+    host: localhost
+    port: 6379
+
+# App configuration
+app:
+  auth:
+    otp:
+      length: 6
+      expiry-seconds: 300
+      max-attempts: 5
+    
+    jwt:
+      secret: test-jwt-secret-key-that-is-long-enough-for-hmac-sha256-algorithm-minimum-256-bits
+      access-token-expiry-ms: 3600000  # 1 hour
+      refresh-token-expiry-ms: 604800000  # 7 days
+    
+    rate-limit:
+      otp-send-max-requests: 3
+      otp-send-window-seconds: 3600
+      otp-verify-max-requests: 10
+      otp-verify-window-seconds: 3600
+    
+    twilio:
+      account-sid: test-account-sid
+      auth-token: test-auth-token
+      from-phone-number: +1234567890
+
+# User Service
+user-service:
+  url: http://localhost:8082/api/v1/users
+
+# Logging
+logging:
+  level:
+    com.openride: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG

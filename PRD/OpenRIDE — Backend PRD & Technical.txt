@@ -1,0 +1,864 @@
+OpenRIDE — Backend PRD & Technical 
+Requirements (Comprehensive) 
+Purpose: This document is the full backend Product Requirements Document (PRD) and 
+technical specification for OpenSeat — a fixed-route carpooling platform focused on 
+Lagos, Nigeria, aimed at reliable, low-cost, scheduled shared rides between common 
+origin points (bus stops/estates) and workplaces. It is written for engineers, architects, 
+product managers, and stakeholders who will build and operate the backend 
+microservices. 
+1. Executive summary 
+OpenSeat connects car owners (drivers) who regularly commute fixed routes with riders 
+who need affordable, reliable daily transport at pre-defined pickup points. The backend 
+must support: onboarding (KYC-lite), route & schedule management, real-time 
+booking/matching, payment processing, blockchain-backed immutable tickets, pricing 
+and revenue flows, safety & trust features, analytics, and scale to millions of users while 
+remaining cost-effective. 
+Primary goals: 
+• Minimal friction for driver and rider onboarding. 
+• Low-latency, highly available booking & verification system (SLA: 99.95% for core 
+booking APIs). 
+• Scalable microservices architecture capable of handling peak morning/evening 
+commuter spikes. 
+• Built-in fraud prevention, dispute handling and audit trails (blockchain-based 
+ticketing for non-repudiation). 
+• Secure payments with PCI scope minimization (use payment providers' hosted 
+widgets). 
+KPIs & Targets (initial 12 months): 
+• 10,000 active weekly users (profitability target stated by team). 
+• Mean booking latency < 150ms for success path. 
+• Payment success rate > 98%. 
+• Driver acceptance/retention: 60%+ of onboarded drivers still active after 3 months. 
+• Uptime: 99.95% for core booking/payment APIs. 
+2. Product scope & core use cases 
+2.1 Primary user types 
+• Riders: commuters who search routes or stops, book seats, pay, and ride. 
+• Drivers (car owners): create/advertise a fixed route (sequence of stops and 
+schedule), set seat price, accept bookings, manage passengers. 
+• Admin / Operations: internal dashboards for support, manual adjustments, driver 
+verification, insights. 
+2.2 Core flows (high-level) 
+1. Registration & KYC-lite — riders and drivers register with phone, email, and 
+optionally BVN/ID for drivers. 
+2. Driver creates route — defines stops (geo coordinates), schedule (recurring 
+days/times), seats available, price per stop/segment, vehicle details. 
+3. Rider discovers route — search by start/end or discover nearby scheduled rides 
+(geolocation + time filter). 
+4. Booking — rider selects stop/time, optionally chooses seat, pays via hosted 
+payment widget. 
+5. Ticket issuance — on payment success, backend issues an immutable blockchain 
+ticket (hashed record + reference) and returns a QR or ticket id. 
+6. Check-in / boarding — driver or gatekeeper validates ticket (QR scan or ticket id). 
+Rider boards. 
+7. Trip completion & payout — ride completes, platform calculates driver payouts 
+(less commission), triggers settlement. 
+8. Ratings & dispute — riders/drivers rate each other; disputes raised via support 
+flows. 
+2.3 Edge cases & non-functional flows 
+• Partial refunds (driver cancellations, route changes). 
+• No-shows & ghost bookings (penalties, refunds, or credits). 
+• Route schedule modifications (driver edits recurring route). 
+• Overbooking prevention & seat hold windows (e.g., seat reservation expires after 10 
+min if unpaid). 
+3. Technical architecture (high level) 
+Design principles: modular microservices, single responsibility, observable, fault-tolerant, 
+infrastructure-as-code, cost-aware. 
+3.1 Suggested topology 
+• API Gateway (edge): authentication, TLS termination, request routing, rate limiting. 
+(e.g., Kong/Envoy/NGINX + cloud LB) 
+• Auth Service (OAuth2 / JWT / Token introspection) 
+• User Service (profiles, KYC status) 
+• Driver Service (routes, vehicle, schedule) 
+• Search & Discovery Service (geospatial queries, nearest stops) 
+• Booking Service (seat inventory, holds, reservations) 
+• Payments Service (payments orchestration, webhooks handler) 
+• Ticketing Service (blockchain ticket generation & verification) 
+• Payouts Service (driver wallet, settlements) 
+• Notification Service (push, SMS, email) 
+• Matchmaking Service (route-to-rider matching; optional optimization) 
+• Fleet / Monitoring Service (real-time status of active rides) 
+• Admin & Support Service (dashboards, manual adjustments) 
+• Analytics / Events Pipeline (Kafka or managed pub/sub) 
+• Shared infrastructure: Configuration, Secrets Manager, Service Mesh (optional), 
+Tracing, Logging 
+Each service is an independent microservice with its own datastore (when appropriate) to 
+enable scaling and data ownership. 
+3.2 Tech-stack recommendations 
+• Language & frameworks: 
+o High-throughput, strongly-typed services (e.g., Booking, Payments, Payouts, 
+Matchmaking): Java + Spring Boot (excellent for concurrency, observability, 
+mature ecosystem). Use for services with strict consistency and complex 
+state logic. 
+o Lightweight, fast iteration services and ML/experimentation (Search, 
+Geospatial, small APIs): Python + FastAPI. 
+o Use Node.js for real-time notification gateway (optional) if team prefers JS. 
+• Databases: 
+o Primary relational: PostgreSQL (ACID for bookings, payments). Use multi-AZ 
+managed instance. 
+o Spatial queries: PostGIS extension on PostgreSQL. 
+o Caching: Redis (seat hold, rate-limiting, session caching, leader election) 
+o Event store / analytics: Kafka (self-managed or cloud managed like 
+Confluent/Cloud Pub/Sub). 
+o Search: ElasticSearch (for logs, rich search), or using PostgreSQL + GIN 
+indexes if scope small. 
+• Message broker & async: Kafka for high-throughput events; RabbitMQ for simpler 
+queues if needed. 
+• Blockchain: Use a permissioned or Layer 2 network for ticket hashes (e.g., private 
+Hyperledger Fabric or a cost‑efficient Layer 2 like Polygon PoS or a rollup). Store 
+only the minimal hash + metadata on-chain; keep full ticket data off-chain in DB 
+with hash pointer. 
+• Infrastructure: Kubernetes (EKS/GKE/AKS) with Helm, or serverless for non-critical 
+components. Use Terraform for IaC. 
+• CI/CD: GitHub Actions or GitLab CI with pipelines to build/test/deploy; use image 
+scanning, SAST, dependency checks. 
+• Monitoring & Observability: Prometheus + Grafana, ELK 
+(Elasticsearch/Logstash/Kibana) or Loki + Tempo for tracing, Sentry for errors. 
+• Secrets & Config: HashiCorp Vault or cloud provider secrets manager. 
+4. Data model (core entities) 
+Note: store full DDL in a separate schema file; below are canonical entities and important 
+fields. 
+4.1 User 
+• id (uuid) 
+• phone (unique, verified) 
+• email 
+• name 
+• role (rider/driver/admin) 
+• kyc_status (NONE / PENDING / VERIFIED / REJECTED) 
+• created_at, updated_at 
+4.2 DriverProfile 
+• user_id -> User 
+• vehicle_id -> Vehicle 
+• bvn_or_id (encrypted) 
+• driving_license (file refs) 
+• active_routes [route_ids] 
+• payout_account (bank details, third-party wallet id) 
+4.3 Vehicle 
+• id 
+• plate_number 
+• model, color 
+• capacity (seats) 
+4.4 Route 
+• id 
+• driver_id 
+• name 
+• stops: ordered list of {stop_id, lat, lon, address, planned_arrival_time} 
+• schedule: recurrence rules (iCal RRULE or custom) 
+• price_matrix: price per origin-stop or per segment 
+• seats_total, seats_available 
+• status (ACTIVE/PAUSED/CANCELLED) 
+• created_at, updated_at 
+4.5 Stop 
+• id 
+• name 
+• lat, lon 
+• nearest_landmark 
+4.6 Booking 
+• id 
+• route_id 
+• driver_id 
+• rider_id 
+• pickup_stop_id, dropoff_stop_id 
+• seat_count 
+• status (PENDING / HELD / PAID / CONFIRMED / CHECKED_IN / COMPLETED / 
+CANCELLED / REFUNDED) 
+• payment_id 
+• ticket_hash (on-chain reference) 
+• created_at, updated_at 
+4.7 Payment 
+• id 
+• booking_id 
+• provider (Interswitch / Kora / others) 
+• amount, currency 
+• status (INIT / SUCCESS / FAILED / REFUNDED) 
+• provider_reference 
+• created_at 
+4.8 Ticket 
+• id 
+• booking_id 
+• ticket_hash (sha256 of canonical payload) 
+• chain_tx_id (if recorded on-chain) 
+• issued_at 
+• valid_until 
+4.9 Payout / Ledger 
+• ledger entries per driver (in/out) 
+• fees, commissions 
+• payout_status 
+5. API surface & contracts (examples) 
+This section lists the most important APIs. Use OpenAPI spec for each service; generate 
+clients. 
+5.1 Public API (API Gateway) 
+• POST /v1/auth/send-otp — send phone OTP 
+• POST /v1/auth/verify-otp — verify, return JWT 
+• GET /v1/routes — search available routes (query by lat/lon, time window) 
+• GET /v1/routes/{routeId} — route detail 
+• POST /v1/bookings — create booking (body: routeId, pickupStopId, 
+dropoffStopId, seats) 
+• POST /v1/payments/initiate — start hosted payment flow (returns provider 
+payment URL / widget token) 
+• POST /v1/webhooks/payments — payment provider webhook 
+• GET /v1/bookings/{bookingId}/ticket — returns ticket QR payload or verify 
+ticket 
+5.2 Driver APIs 
+• POST /v1/drivers/routes — create route 
+• PUT /v1/drivers/routes/{id} — modify route 
+• GET /v1/drivers/routes/active — list active routes 
+• POST /v1/drivers/check-in/{bookingId} — mark passenger checked in (with 
+ticket validation) 
+5.3 Admin APIs 
+• GET /v1/admin/bookings — search bookings 
+• POST /v1/admin/refund — issue manual refund 
+• PATCH /v1/admin/user/{id} — adjust KYC or status 
+6. Booking & Seat Inventory guarantees 
+6.1 Strong consistency requirements 
+Booking and seat inventory are the core transactional paths and need strong consistency 
+with ACID semantics. 
+• Use PostgreSQL transactions with SELECT FOR UPDATE or application-level 
+distributed locks. 
+• Optionally use an optimistic concurrency control with versioning for small-scale; 
+prefer pessimistic locks for high contention (morning rush). 
+• Redis can implement short-term seat-hold locks (TTL) for unpaid reservations — but 
+final seat decrement must be in the relational DB when payment confirmed. 
+6.2 Reservation & hold flow (recommended) 
+1. POST /bookings: create a PENDING booking and reserve seat in Redis with TTL 
+(e.g., 10 minutes). 
+2. Initiate payment flow; the booking record ties to payment attempt. 
+3. On payment success webhook, atomically transition booking to PAID and 
+decrement seats in Postgres in a transaction; release Redis hold. 
+4. If payment fails or TTL expires, booking CANCELLED and hold released. 
+7. Payments & blockchain ticketing (continued) 
+7.1 Payments (continued) 
+7.1.3 Edge cases & failure modes (continued) 
+• Payment confirmation delay vs seat hold TTL 
+o Problem: Rider starts payment, seat hold TTL (e.g., 10min) expires before 
+provider webhook arrives — risk: double-book or loss of funds. 
+o Business rules: 
+▪ When a payment intent is created, extend the seat-hold TTL to a 
+configurable max-payment-window (e.g., 30 minutes) if there is an 
+ongoing confirmed payment attempt. 
+▪ If webhook arrives after seat was reassigned, reconcile: if provider 
+shows SUCCESS and seat not available, either (a) issue immediate 
+credit/refund, or (b) attempt to reassign equivalent seat and notify 
+rider — choose based on configured policy. 
+o Implementation: 
+▪ Keep payment_intent state tied to booking and store 
+payment_attempted_at and hold_expiry_override_until. 
+▪ Background job: run reconciliation every X minutes to detect late
+success events and mark bookings DISPUTE_LATE_PAYMENT for 
+human review if auto-resolution fails. 
+• Partial payments 
+o If platform supports split payments or promo discounts, verify that provider 
+amount_paid matches expected_amount after applying discounts. If 
+mismatch, mark booking PAID_PARTIAL and flag for manual resolution. 
+• Network and provider outages 
+o Implement retry queues for webhook processing (exponential backoff), but 
+mark events as UNPROCESSED_AFTER_RETRIES after N attempts and alert 
+SRE. 
+o Implement fallback provider in Payment Adapter — if primary provider's 
+health check fails, expose informative UI message and optionally route to 
+secondary provider (if configured). 
+• Duplicate or replayed webhooks 
+o Persist provider webhook_event_id and reject re-processing (idempotency) 
+using a fast store (Postgres table or Redis set with TTL). 
+o On duplicate webhook, return 200 immediately after verifying idempotency 
+and reusing stored processing result. 
+• Chargebacks and disputes 
+o When chargeback occurs: 
+▪ Mark payment.status = CHARGEBACK and booking.status = 
+DISPUTE. 
+▪ Flag driver ledger entries as PENDING_REVERSAL, hold payout for that 
+amount. 
+▪ Collect and attach evidence: signed ticket, driver checkin 
+confirmation, photos, CCTV (if available), and communication logs. 
+▪ Launch dispute resolution workflow with timestamps, escalate to 
+manual operations if not resolved in configurable time window. 
+o Expose admin APIs to add evidence and update dispute states. 
+7.1.4 Payment API contract & sample JSON structures 
+• Create Payment Intent (backend → provider adapter) 
+o Request (internal): 
+{ 
+} 
+{ 
+} 
+"bookingId":"b_1234", 
+"amount_kobo": 150000, 
+"currency":"NGN", 
+"riderId":"u_987", 
+"metadata":{"routeId":"r_55","pickupStopId":"s_12"}, 
+"idempotencyKey":"payintent_b_1234_v1" 
+o Response (internal store): 
+"paymentIntentId":"pi_xxx", 
+"provider":"interswitch", 
+"widgetToken":"tok_abc123", 
+"expires_at":"2025-11-11T09:00:00Z" 
+• Webhook handler pseudocode (simplified) 
+function handleWebhook(request): 
+    verifySignature(request.headers, request.body) or reject(401) 
+    eventId = request.body.id 
+    if processedEventExists(eventId): return 200 (idempotent) 
+    payment = mapProviderEventToInternal(request.body) 
+    beginTransaction() 
+      if payment.status == SUCCESS: 
+          booking = lockBooking(payment.metadata.bookingId)   // 
+SELECT ... FOR UPDATE 
+          if booking.status in [PENDING, HELD]: 
+              markBookingPaid(booking, payment) 
+              decrementSeatsAtomically(booking.routeId, 
+booking.seatCount) 
+              createTicket(booking) 
+          else: 
+              log("Payment succeeded but booking not in payable 
+state") 
+      else if payment.status in [FAILED, CANCELLED]: 
+          markBookingCancelled(booking, reason) 
+    commitTransaction() 
+    persistProcessedEvent(eventId, result) 
+    return 200 
+ 
+7.1.5 Reconciliation & reporting 
+• Daily tasks: 
+o Fetch provider transaction list (API) for day D. 
+o Match provider transactions to internal Payment records by 
+provider_reference / paymentIntentId / amount. 
+o Produces reconciliation report: 
+▪ Matched: OK 
+▪ Unmatched provider txns: Alert (possible external charges) 
+▪ Internal payments without provider confirmation: flag for manual 
+follow-up 
+• Reconciliation artifacts: 
+o CSV/JSON export, retention for audit (1+ years configurable). 
+o Reconciliation metrics dashboard and daily digest email to finance ops. 
+7.1.6 Testing & staging 
+• Use provider sandbox APIs for E2E tests. 
+• Automated tests: 
+o Unit tests for Payment Adapter mapping logic. 
+o Integration tests for webhook flows (using test containers or mocks). 
+o Contract tests to ensure provider responses are handled correctly. 
+• Load tests: 
+o Simulate concurrent successful and failed payment webhooks at scale — 
+ensure idempotency store holds and DB transactions behave. 
+7.2 Blockchain ticketing (detailed) 
+Goal: provide tamper-evident proof-of-booking, low-cost per-transaction operations, 
+privacy preservation, and support for dispute resolution and audits. 
+Principle: Store the minimum on-chain (a hash / Merkle root). Keep full booking data off
+chain in secure DB. Use server-signed tickets for instant verification and on-chain anchors 
+for long-term non-repudiation. 
+7.2.1 High-level ticketing workflow 
+1. Booking PAID confirmed by Payment Service. 
+2. Ticket Service: 
+a. Creates canonical ticket JSON (deterministic ordering). 
+b. Computes ticket_hash = SHA256(canonical_json). 
+c. Persists Ticket record locally with ticket_hash. 
+d. Signs the canonical JSON with platform private key (ECDSA/secp256k1 or 
+Ed25519) to produce signature. 
+e. Generates QR payload containing {bookingId, ticket_hash, 
+signature, issued_at} (optionally compressed). 
+f. Returns QR / ticket id to rider and driver apps. 
+3. On-chain anchoring (two options — immediate or batched): 
+a. Batched Merkle anchoring (recommended for cost): 
+i. Accumulate N ticket_hash values in a batch (e.g., hourly or daily). 
+ii. Build Merkle tree, compute merkle_root. 
+iii. Post merkle_root to a public chain (e.g., Polygon PoS) or a 
+permissioned chain. 
+iv. Store chain_tx_id and merkle_proof references for each ticket. 
+b. Immediate single-tx anchoring (higher cost): 
+i. Post the ticket_hash directly to chain in a quick transaction and 
+persist tx id (not recommended at scale due to fees). 
+4. Verification: 
+a. Quick verification: verify server signature on canonical payload (no chain 
+lookup). 
+b. If deeper audit required: retrieve merkle proof and confirm root appears on 
+chain at chain_tx_id. 
+7.2.2 Canonical ticket format (deterministic) 
+• Use stable field ordering and canonical JSON (e.g., RFC 8785) or use protobuf to 
+avoid ambiguous serialization. 
+• Example canonical payload (stringified in canonical form before hashing): 
+{ 
+} 
+"bookingId":"b_1234", 
+"riderIdHash":"h_rider_abc123",    
+"routeId":"r_55", 
+"pickupStopId":"s_12", 
+"dropoffStopId":"s_20", 
+"price_kobo":150000, 
+// hashed rider id for privacy 
+"issued_at":"2025-11-11T07:15:33Z", 
+"platform":"openseat-v1" 
+7.2.3 Cryptography & signing 
+• Hashing: SHA-256 (or SHA3-256) for ticket hashes. 
+• Signing: ECDSA (secp256k1) or Ed25519. Keep private key in Vault (HSM 
+recommended for production). 
+• Signing flow: 
+o signature = Sign(priv_key, canonical_json) 
+o Store signature in Ticket record and include in QR. 
+• Verification flow (driver app or admin tool): 
+o Verify signature with platform public key (no chain access required). 
+o If signature OK, optionally verify merkle proof to confirm anchor on-chain. 
+7.2.4 QR & on-device verification 
+• QR payload should be compact. Options: 
+o Full JSON compressed and Base64 encoded. 
+o Or minimal {bookingId, ticketHash, signature}. 
+• Driver app/validator: 
+o Extract bookingId and ticketHash. 
+o Optionally request booking details from backend (requires auth). 
+o Verify signature locally against public key to ensure ticket indeed issued by 
+platform. 
+o If offline verification needed (no network), signature-based verification is 
+sufficient; chain verification deferred until network available. 
+7.2.5 Privacy & PII considerations 
+• Do not put rider personal info on-chain. 
+• Use riderIdHash (salted hash) rather than raw rider ID. 
+• Keep full booking details in secure Postgres with encryption at rest. 
+7.2.6 On-chain choice & anchoring strategy 
+• Recommendation for Lagos/MVP: Use Merkle batching and post daily Merkle root 
+to a low-fee public chain (Polygon PoS) OR maintain a permissioned ledger for 
+institutional customers (employers) who need higher control. 
+• Why batching: dramatically reduces per-ticket on-chain cost while retaining strong 
+tamper-evidence. 
+• Tradeoffs: 
+o Public chain anchoring gives undeniable timestamp on public ledger. 
+o Permissioned chain gives faster confirmations and privacy but less public 
+trust. 
+• Recordkeeping: store chain_tx_id, block_number, merkle_root, and 
+merkle_proof index per ticket. 
+7.2.7 Failure modes & recovery 
+• Failed anchoring tx: persist batch and retry with exponential backoff; flag batch as 
+anchoring_failed and alert ops. 
+• Key compromise: rotate keys immediately, mark all tickets issued with 
+compromised key as suspect, and issue re-anchoring with new keys. 
+• Missing proof: if proof or merkle proof generation fails, mark ticket unanchored 
+and allow offline signature verification; escalate for manual investigation. 
+7.2.8 Auditing & dispute process using blockchain tickets 
+• For a disputed booking: 
+o Fetch ticket record, signature, and stored canonical JSON. 
+o Verify signature to confirm platform issued that ticket at issued_at. 
+o Retrieve merkle proof and chain tx to prove ticket existed at anchor time. 
+o Provide full packet (ticket + signed evidence) to payments/dispute teams as 
+evidence. 
+• This chain-backed evidence reduces chance of fraudulent cancellation claims. 
+7.2.9 APIs for ticketing (examples) 
+• POST /v1/tickets/generate — generate QR + signature for booking (internal 
+call after payment success). 
+• GET /v1/tickets/{ticketId}/verify — verify signature + optionally chain 
+proof. 
+• GET /v1/tickets/merkle/batch/{batchId} — view merkle root and chain tx. 
+• POST /v1/tickets/merkle/anchor — administrative endpoint to trigger batch 
+anchoring. 
+7.2.10 Monitoring & observability for ticketing 
+• Metrics: 
+o Tickets issued per minute/hour. 
+o Anchor batch size and success/failure rates. 
+o Time-to-anchor (issued → on-chain). 
+• Alerts: 
+o Anchor tx failures. 
+o Unusually high number of unanchored tickets. 
+• Logs: 
+o Persist signed canonical JSON and hash in append-only audit log (write
+once) for investigations. 
+7.2.11 Testing & staging for ticketing 
+• Unit tests for canonicalization (must be deterministic). 
+• Signature verification tests across languages (backend & mobile). 
+• Test Merkle tree generation and proof verification. 
+• Dry-run anchoring to testnet/public chain sandbox (Polygon Mumbai or similar) 
+before mainnet. 
+7.3 Payment + Ticketing operational checklist (short) 
+• Payment Adapter implemented with idempotency and webhook verification. 
+• Seat-hold TTL strategy integrated with payment_intent lifecycle. 
+• Reconciliation jobs scheduled + alerting for mismatches. 
+• Ticket canonicalization, hashing, signing pipeline implemented. 
+• QR structure defined and tested on mobile validator. 
+• Merkle batching & on-chain anchoring job implemented with retries & monitoring. 
+• Admin tools to query ticket proofs and resolve disputes. 
+• Secrets (private keys, provider API keys) in Vault; rotation policy in place. 
+• End-to-end tests in staging (booking → payment → ticket → check-in). 
+7.4 Example sequence (booking → verify) — concrete 
+1. Rider requests POST /bookings → server creates booking PENDING and reserves 
+seat with Redis TTL 10m. 
+2. Server creates payment intent pi_xx and returns widget token to frontend. 
+3. Rider completes hosted widget flow; provider sends webhook: PAYMENT_SUCCESS. 
+4. Webhook handler verifies signature → marks booking PAID → within DB transaction: 
+a. change booking status to PAID 
+b. decrement route.seats_available 
+c. call Ticket Service to generateTicket(booking) (create canonical JSON, 
+hash, sign, persist) 
+5. Ticket Service returns ticketId + qrPayload. Rider sees ticket in app. 
+6. Driver scans QR at boarding: 
+a. Driver app verifies signature with public key -> success -> allows check-in. 
+b. Optionally call backend to POST /drivers/check-in/{bookingId} to 
+mark CHECKED_IN. 
+8.1 Ledger Architecture Requirements 
+8.1.1 Ledger Structure 
+The ledger is append-only, immutable, and cryptographically chained. 
+Each ledger entry contains: 
+• ledger_entry_id (UUID) 
+• driver_id 
+• event_type (payment_received, commission_applied, promo_deduction, 
+fuel_bonus, payout_disbursed, adjustment, refund_reversal) 
+• amount 
+• currency 
+• reference_id (booking_id or payout_id) 
+• created_at 
+• hash_prev_entry 
+• hash_current_entry 
+• metadata (JSON) 
+The chain structure ensures tamper detection. Modification requires creating a reversal 
+entry, never updating existing rows. 
+8.1.2 Event Types with Logic 
+(a) Payment Received 
+Triggered after successful rider payment confirmation. 
+Recorded as a positive credit. 
+(b) Platform Commission 
+Auto-generated entry. 
+Negative debit of fixed percentage or dynamic pricing formula. 
+(c) Bonuses 
+• fuel subsidy 
+• surge compensation 
+• promo rewards 
+Positive credit entries. 
+(d) Penalties 
+• late arrival 
+• no-show 
+• dispute settlement 
+Negative debit entries. 
+(e) Payout Disbursement 
+Final withdrawal event. 
+After a payout is sent, the corresponding ledger entries are locked. 
+8.2 Earnings Calculation Engine 
+8.2.1 Formula 
+driver_earning = (fare - commission) + bonuses - penalties 
+8.2.2 Earnings Window 
+• Window is configurable (default: midnight to midnight). 
+• Only settled bookings count. 
+• Pending disputes freeze those entries. 
+8.2.3 Earnings Preview 
+Drivers can request earnings summary for: 
+• Today 
+• This week 
+• Last 7 days 
+• Custom date range 
+Computed on top of pre-aggregated Redis caches + ledger entries for accuracy. 
+8.3 Payout Cycles 
+8.3.1 Daily Payouts 
+• Batch process runs at 11:59 PM WAT. 
+• Uses a payout queue. 
+• Generates a payout batch summary. 
+8.3.2 Weekly Payouts 
+• Default for new drivers to reduce fraud. 
+• Runs every Monday 6 AM WAT. 
+8.3.3 Instant Payout 
+• Uses Interswitch/Korra instant transfer API. 
+• Includes instant-payout fee (configurable). 
+• Anti-fraud guardrails: 
+o only after 10 completed rides 
+o daily limit 
+o KYC Level 2 required 
+o velocity check (too many instant payouts in 24 hours) 
+8.4 Failed Payout Handling 
+8.4.1 Automatic Retries 
+• 3 retries spaced with: 
+o 2 minutes 
+o 10 minutes 
+o 60 minutes 
+Retry metadata is stored on each attempt. 
+8.4.2 Permanent Failure (PendingManual) 
+If retries fail: 
+• Mark payout as PendingManual. 
+• Lock associated ledger entries. 
+• Alert Backoffice (Slack/email). 
+• Send driver notification with neutral language. 
+• Allow operations team to re-trigger or refund. 
+8.5 Anti-Fraud & Risk Controls 
+Velocity Checks 
+• Number of payouts per day 
+• Amount per payout 
+• Total earnings window 
+Identity Checks 
+• KYC mismatch → freeze. 
+• Suspicious device fingerprinting → freeze. 
+Behavior Checks 
+• Excessive cancellations 
+• Multiple accounts sharing same bank account 
+• Drivers attempting to “farm” same route repeatedly 
+8.6 APIs 
+POST /payouts/initiate 
+Initiate payout. 
+GET /ledger/driver/:id 
+Fetch ledger entries. 
+GET /earnings/summary/:id 
+Pre-aggregated earnings. 
+POST /payouts/manual-review 
+Triggered by ops. 
+9. MATCHING ENGINE — CORE BACKEND 
+REQUIREMENTS 
+This is the brain of the entire platform. 
+It determines whether the platform feels smooth like velvet or chaotic like a Lagos danfo. 
+Matching must feel instant. 
+9.1 Purpose 
+The engine must match riders to best-fit carpool vehicles based on: 
+• Pickup coordinates 
+• Drop-off corridor 
+• Time window 
+• Live seat availability 
+• Driver reliability score 
+• Geographic alignment with route path 
+9.2 Architectural Requirements 
+9.2.1 Redis Geospatial Indexing 
+Use Redis GEO commands for high-speed lookups: 
+• GEOADD drivers:active 
+• GEORADIUS drivers:active <lat> <lng> <radius> 
+Locations updated via: 
+• Driver app (every 5–10 seconds) 
+• Background throttler to smooth updates 
+9.2.2 Hot Route Caching 
+Routes are preloaded into Redis: 
+• route_snapshots:state:lagos 
+• route_active_drivers:route_id 
+Updated every time driver availability changes. 
+9.2.3 Temporal Matching Window 
+Riders can choose: 
+• “Now” — match immediately 
+• “Within 10 mins” — wider search 
+• “Scheduled ride” — stored in future queue 
+Matching engine prioritizes: 
+smallest detour + spaced pickup time + least friction cost 
+9.3 Matching Criteria (Weighted Model) 
+Primary Factors 
+1. Distance to pickup 
+2. Route similarity 
+3. Driver reliability score 
+4. Time alignment (pickup window) 
+5. Seat availability 
+Weight Strategy 
+• Distance: 40% 
+• Reliability: 20% 
+• Route alignment: 25% 
+• Timing: 10% 
+• Surge conditions or capacity constraints: 5% 
+Values configurable in admin dashboard. 
+9.4 Ride Allocation Flow (Detailed) 
+1. Rider requests a seat. 
+2. System queries Redis GEO radius (0.5–2 km adjustable). 
+3. Filter drivers currently traveling in rider’s direction. 
+4. Validate seat availability. 
+5. Score each driver. 
+6. Choose highest-scoring match. 
+7. Lock a seat temporarily. 
+8. Notify driver → accept/auto-accept. 
+9. On accept → generate booking & ticket. 
+10. On timeout → retry with next candidate. 
+If no match: 
+• Retry every 10 seconds for 2 minutes. 
+• Offer nearest alternative pickup points. 
+9.5 Performance Targets 
+Speed 
+• End-to-end match < 200ms 
+• Redis lookup < 50ms 
+Throughput 
+• Handle 1000 match requests/second 
+Reliability 
+• 99.95% matching uptime 
+• Fallback to PostGIS if Redis cluster is down 
+9.6 Data Storage and Write-Behind Strategy 
+Primary Writes 
+• Driver availability state 
+• Seat status 
+• Booking locks 
+Stored first in Redis (low latency). 
+Write-Behind 
+• Redis writes periodically flush to PostgreSQL every 2–10 seconds. 
+This gives: 
+• High speed 
+• Accurate persistent records 
+Conflict Handling 
+If Redis and DB disagree: 
+• Redis wins for “live state” 
+• DB wins for financial events 
+9.7 Failure Handling 
+Redis down 
+• Switch to degraded mode: 
+o Direct PostGIS queries 
+o Performance drops 
+• Notify DevOps immediately 
+Matching timeout 
+• Provide alternative route suggestions 
+• Expand search radius automatically 
+Driver unreachable 
+• Reassign to next best driver 
+• Log reliability penalty 
+10. Notifications System 
+Channels 
+• Push notifications: Mobile app notifications via Firebase Cloud Messaging (FCM) 
+or Apple Push Notification Service (APNS). 
+• SMS fallback: Integrate with local SMS gateway (Twilio, Africa’s Talking) when push 
+fails. 
+• Email receipts: Send transactional emails via SendGrid, Mailgun, or similar, for 
+payment confirmation and ride summaries. 
+Events to notify 
+• Booking created: Rider & driver notified with route, pickup stop, and scheduled 
+time. 
+• Payment success: Rider receives confirmation; driver ledger updated. 
+• Car arriving: Real-time push when car is 2–5 minutes from pickup. 
+• Ride completed: Rider & driver notified; triggers ledger posting and rating prompt. 
+• Payout completed: Driver notified when funds are disbursed. 
+• Optional: promo announcements, alerts for system maintenance, route changes, or 
+incidents. 
+Architecture 
+• Notification Microservice: Single service orchestrates event consumption and fan
+out to multiple channels. 
+• Event-driven triggers: 
+o Use Kafka or RabbitMQ for pub/sub of events from booking, payment, 
+payout, and ride tracking services. 
+o Events should carry payloads with user_id, contact info, event type, 
+timestamp, and metadata (route_id, booking_id). 
+• Fan-out logic: 
+o Attempt push first; fallback to SMS if push fails or device offline. 
+o Email for high-value events (payment receipts, ride summaries). 
+• Reliability: 
+o Persist events in a durable queue until confirmation of delivery. 
+o Retry failed notifications with exponential backoff. 
+• Observability: 
+o Track delivery success/failure metrics per channel. 
+o Alert if delivery rate drops below 95% SLA. 
+11. Compliance, Safety & Trust 
+KYC & Driver Verification 
+• BVN or NIN verification: Integrate with local identity providers (e.g., Bank API) to 
+confirm driver identity. 
+• License verification: Drivers upload valid driver’s license; system validates format 
+& expiry. 
+• Vehicle papers upload: Registration certificate and insurance must be uploaded 
+and approved before route activation. 
+• Insurance validation: Optional but recommended; ensures coverage for 
+passengers in case of accidents. 
+• Maintain audit trail for all verification steps (immutable logs with timestamps). 
+Safety Features 
+• Live GPS tracking: Enable real-time location tracking of vehicles; store route data 
+for up to X days for dispute resolution. 
+• Share-trip URL: Riders can share real-time trip link with family or employer. 
+• Emergency SOS button: Both driver and rider can trigger instant alerts to 
+operations and local emergency contacts. 
+• Anonymous/Masked calling: Protect personal phone numbers; route calls through 
+system proxy. 
+• Driver score ranking: Aggregate ratings from riders, track reliability, timeliness, and 
+safety incidents. 
+• Incident reporting workflow: Structured reporting form with automated ticket 
+creation, investigation, and escalation for fraud, accidents, or harassment. 
+Operational notes 
+• Safety metrics should feed dashboards for compliance and performance tracking. 
+• Critical incidents trigger high-priority alerts to operations team for immediate 
+action. 
+12. Admin Backoffice 
+Required Modules 
+• User management: CRUD for riders/drivers; KYC status overview; 
+suspension/reinstatement features. 
+• Driver onboarding dashboard: View pending verifications, approve/reject 
+documents, track onboarding status. 
+• Route management: View, edit, deactivate routes; adjust schedules and seat 
+availability. 
+• Dispute resolution: Handle rider/driver complaints; link disputes to tickets, ledger 
+entries, and evidence. 
+• Ledger inspection: View driver earnings, platform commission, refunds, and 
+payment history. 
+• Suspicious transaction detection: Flag unusual booking/payment patterns (e.g., 
+multiple failed attempts, ghost bookings). 
+• Refund & payout management: Manual override of automated refunds, handle 
+failed payouts, schedule adjustments. 
+• System logs viewer: Integrate Kibana/CloudWatch/Loki for full-stack observability; 
+allow filtering by service, user, route, or booking ID. 
+Architecture & Access Control 
+• Role-based access: Admins, finance, support, and compliance officers have 
+tailored dashboards. 
+• All critical actions require audit logging and optional 2FA for high-risk operations 
+(payout overrides, dispute resolution). 
+• Admin APIs are separate from public-facing APIs; enforce strict network and auth 
+controls. 
+13. Monitoring, Logging & Observability 
+Requirements 
+• Distributed Tracing: 
+o Implement full OpenTelemetry instrumentation across all microservices 
+(Booking, Payment, Matching, Notifications, Ledger, etc.). 
+o Trace request lifecycle from API Gateway → service → downstream service → 
+database → external providers. 
+• Error Rate Alarms: 
+o Track service-level error rates (HTTP 5xx, timeout errors). 
+o Set threshold alerts (e.g., >1% error rate in 5 min triggers PagerDuty). 
+• Payment Failure Alerting: 
+o Notify ops immediately on failed payments, chargebacks, or reconciliation 
+mismatches. 
+o Include booking ID, driver ID, and amount in alert payload. 
+• Geo-service Latency Dashboards: 
+o Measure response times for Redis geospatial queries, driver lookup, and 
+route matching. 
+o Maintain SLA of <200ms for matching engine responses. 
+• Crash Analytics for Mobile Clients: 
+o Collect logs from mobile apps via Sentry or Firebase Crashlytics. 
+o Categorize crashes by app version, OS, region, and network conditions. 
+• Slow DB Query Detection: 
+o Enable Postgres query logging for slow queries (>500ms). 
+o Alert devs and ops if queries exceed SLA or deadlocks occur. 
+• Centralized Logging: 
+o Use ELK stack or CloudWatch Logs for all service logs. 
+o Include correlation IDs to link distributed traces with logs. 
+• Metrics Dashboard: 
+o Include KPIs: active riders, active drivers, completed rides, payment success 
+rate, matching latency, payout latency, error rate. 
+14. Backend Scalability Requirements 
+Architecture 
+• Fully microservices architecture with domain-specific services. 
+• API Gateway handles routing, rate-limiting, auth, and versioning. 
+• Data stores: 
+o Redis for caching routes, availability, and leaderboards. 
+o Postgres for persistent storage (users, bookings, ledger). 
+• Event Streaming: Kafka/RabbitMQ for decoupling services (matching, notifications, 
+ledger, payment). 
+• Regional Sharding: When scaling beyond city-level, shard DBs and services by 
+region/state for performance. 
+Horizontal Scaling 
+• All services stateless, deployable across multiple instances. 
+• Auto-scale based on CPU, memory, and request latency. 
+• Postgres read replicas for reporting and analytics workloads. 
+• Redis cluster mode to support millions of users concurrently. 
+High Availability 
+• Target 99.9% uptime for all critical services. 
+• Deploy across multiple AZs or data centers. 
+• Blue/green deployments for zero-downtime updates. 
+• Implement rolling database migrations and automated schema validation to avoid 
+service disruption. 
+15. Security Requirements 
+Standards & Protocols 
+• JWT tokens with short expiration for API access. 
+• Role-Based Access Control (RBAC): Different roles for riders, drivers, admin, ops, 
+finance. 
+• Rate Limiting: Protect APIs from abuse or brute-force attacks. 
+• Data Encryption: 
+o At rest: AES-256 for sensitive PII (emails, phone, BVN/NIN). 
+o In transit: TLS 1.3 for all network communication. 
+• No plaintext logs for sensitive data (mask or redact). 
+• Periodic Penetration Testing: Schedule quarterly security assessments and 
+vulnerability scanning. 
+Account & Device Security 
+• Optional 2FA (OTP via SMS/email or authenticator app). 
+• Device sessions tracking: Limit simultaneous devices; notify users on new logins. 
+• Suspicious Login Detection: Flag logins from unusual geolocations, devices, or IPs 
+for review or MFA. 
+16. Testing Requirements 
+Required Test Types 
+• Unit Tests: 
+o 85% coverage for core business logic (matching, ledger, payment). 
+• Integration Tests: 
+o Test interactions between microservices, external providers (payment 
+gateways, SMS/email). 
+• Load Tests: 
+o Simulate 10,000+ concurrent riders requesting matching simultaneously. 
+o Validate system response time, DB throughput, and queue backpressure. 
+• Chaos Testing: 
+o Simulate network loss, node crashes, delayed webhooks, and Redis 
+outages. 
+o Observe system resilience and failover behavior. 
+• Payment Webhook Replay Tests: 
+o Ensure idempotency and replay protection. 
+o Confirm ledger entries are consistent and accurate. 
+• Real-time Matching Engine Stress Test: 
+o Benchmark latency under peak traffic. 
+o Validate Redis geospatial queries, caching efficiency, and write-behind 
+consistency to Postgres. 
+• Regression Tests: 
+o Automate end-to-end workflow tests for bookings, payments, payouts, 
+notifications, and dispute resolution. 

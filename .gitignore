@@ -1,0 +1,88 @@
+# Ignore Python cache and build files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Ignore Java build files
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.iml
+.idea/
+.settings/
+.classpath
+.project
+
+# Ignore environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE files
+.vscode/
+.vs/
+*.swp
+*.swo
+*~
+
+# Ignore log files
+*.log
+logs/
+
+# Ignore test coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Ignore database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Ignore Docker volumes
+/postgres_data/
+/redis_data/
+/pgadmin_data/
+
+# Ignore temporary files
+tmp/
+temp/
+*.tmp
+
+# Ignore node_modules (if any frontend tooling)
+node_modules/
+
+# Ignore secrets and keys
+*.pem
+*.key
+*.crt
+secrets/
+
+# Keep empty directories
+!.gitkeep

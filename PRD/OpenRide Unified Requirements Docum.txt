@@ -1,0 +1,442 @@
+OpenRide Unified Requirements Document
+ 1. Overview
+ OpenRide (also referred to as OpenSeat) is a fixed‑route carpooling platform that connects car owners
+ (drivers) with riders looking for reliable and affordable daily transport between community hubs and
+ workplaces. The platform consists of:
+ • 
+• 
+• 
+Frontend clients (Rider & Driver mobile apps built with React Native and an Admin web dashboard)
+ that deliver a fast, low‑latency user experience for onboarding, search, booking, real‑time tracking
+ and ticketing.
+ Backend microservices providing core business functions such as user management, route &
+ schedule management, search/matching, booking & seat inventory, payments, ticketing,
+ notifications, payouts and analytics.
+ AI/ML matching engine that retrieves nearby driver trips, filters and ranks them based on route
+ alignment, departure time, ratings and price, and generates human‑readable explanations for
+ riders.
+ This document consolidates requirements from the frontend, backend and ML/matching specifications into
+ one comprehensive guide, highlighting system goals, workflows, APIs, data models, non‑functional targets
+ and team responsibilities.
+ 2. Goals and Key Performance Indicators
+ • 
+• 
+• 
+• 
+• 
+• 
+Fast, relevant matches: The matching system must return a sorted list of drivers within
+ milliseconds so riders immediately find rides that fit their destination and schedule. Frontend
+ perception of search → top matches should be under 300 ms with the backend delivering responses
+ within 150 ms.
+ High match quality: Only show drivers whose routes and schedules align with the rider’s needs—
+ same origin hub, correct direction and overlapping or exact destination corridor.
+ Low booking latency: The backend booking flow should have mean latency <150 ms and must
+ support ACID semantics for seat inventory.
+ Payment success and reliability: Payment success rate should exceed 98 %. Hosted payment
+ widgets minimise PCI exposure and tie into a seat‑hold mechanism to prevent double booking.
+ Frontend reliability: Crash‑free session rate >99.5 %, app cold start <2 s, driver location update
+ latency <300 ms, and battery impact (driver background location) <8 % per hour.
+ System availability: Core booking/payment APIs must achieve 99.95 % uptime. Matching service
+ p95 latency must remain ≤200 ms.
+ 1
+3. User Types and Core Flows
+ 3.1 User Types
+ • 
+• 
+• 
+Riders: Use the mobile app to search for routes or stops, book seats, pay via hosted widgets, obtain
+ a ticket (QR) and live‑track their driver.
+ Drivers (car owners): Use the mobile app to create or manage routes (ordered stops and
+ schedules), go online/offline, broadcast background location, accept bookings and verify riders via
+ QR.
+ Admin/Operations: Use a web dashboard to verify drivers, inspect bookings, resolve disputes, view
+ telemetry and handle payouts.
+ 3.2 End‑to‑End Flow Overview
+ 1. 
+2. 
+3. 
+4. 
+5. 
+6. 
+Registration & KYC: Users register via phone/OTP; drivers undergo a KYC‑lite flow (upload license,
+ vehicle photos)..
+ Driver posts route: A driver defines a fixed route as an ordered list of stops, sets a departure time
+ or recurrence (RRULE), seat count and price, then publishes it.
+ Rider discovers and searches: Riders open a map‑first home screen, filter by time window and view
+ top matches (exact or overlapping routes) returned by the matching engine with explanation
+ snippets.
+ Booking & seat hold: The rider selects a route and pickup/destination stops; the system creates a
+ PENDING booking and reserves a seat in Redis with a TTL (e.g., 10 minutes). The rider pays using a
+ hosted payment widget. On successful payment, the backend atomically decrements seats in
+ Postgres and issues a signed ticket (QR).
+ Realtime trip & check‑in: During the ride, the rider subscribes to the driver’s location feed. Drivers
+ broadcast location via WebSocket; the app shows live markers, ETAs and arrival alerts. On boarding,
+ the driver scans the rider’s QR or enters the ticket ID to check in.
+ Trip completion, rating & dispute: After the trip, riders rate the driver and can report incidents.
+ Disputes and refunds are handled through admin flows and support APIs.
+ 4. Backend Requirements
+ 4.1 Architecture
+ The backend is organised into modular microservices deployed via an API gateway. Key services include:
+ • 
+• 
+• 
+• 
+• 
+• 
+Auth Service: Provides OTP verification, JWT issuance and token introspection.
+ User Service: Stores profiles and KYC status.
+ Driver Service: Manages routes, vehicles, schedules and driver metadata.
+ Search & Discovery Service: Handles geospatial queries (PostGIS) and nearest‑stop search,
+ returning candidate routes for riders.
+ Booking Service: Maintains seat inventory, handles reservations and seat‑holds using Redis TTL
+ locks and ACID transactions.
+ Payments Service: Orchestrates hosted payments, processes provider webhooks, enforces
+ idempotency and integrates seat‑hold TTL extension.
+ 2
+• 
+• 
+• 
+• 
+• 
+Ticketing Service: Generates tamper‑evident tickets (hash stored on permissioned or Layer‑2
+ blockchain) and verifies them.
+ Payouts Service: Calculates driver earnings, deducts commissions and processes settlements.
+ Notification Service: Sends push/SMS/email notifications.
+ Matchmaking Service: Implements the AI/ML matching logic; returns ranked matches with
+ explanations.
+ Analytics/Events Pipeline: Captures system events via Kafka or Pub/Sub for analytics and
+ monitoring.
+ Each service maintains its own datastore to ensure scalability and data ownership. Primary data stores
+ include PostgreSQL with PostGIS for relational and spatial data, Redis for caching and seat locks, Kafka for
+ event streams and a permissioned blockchain for storing ticket hashes.
+ 4.2 Data Models
+ Core entities stored in the backend include:
+ • 
+• 
+• 
+• 
+• 
+• 
+• 
+• 
+User: id (UUID), phone, email, name, role (rider/driver/admin), KYC status, timestamps.
+ DriverProfile: references user, vehicle details, encrypted ID information and active routes.
+ Vehicle: id, plate number, model, colour and seat capacity.
+ Route: id, driverId, name, ordered stops (stopId, lat, lon, address, planned arrival), schedule
+ recurrence (RRULE), price matrix per segment, total seats, seatsAvailable, status, timestamps.
+ Drivers can edit departure times and stops before bookings exist; changes after booking are
+ restricted.
+ Stop: id, name, coordinates, nearest landmark.
+ Booking: id, routeId, driverId, riderId, pickupStopId, dropoffStopId, seatCount, status (PENDING/
+ HELD/PAID/CONFIRMED/CHECKED_IN/COMPLETED/CANCELLED/REFUNDED), paymentId, ticketHash,
+ timestamps.
+ Payment: id, bookingId, provider (Interswitch or others), amount, currency, status, provider
+ reference, timestamps.
+ Ticket: id, bookingId, ticketHash (SHA‑256 of canonical payload), blockchain transaction id (optional),
+ issuedAt, validUntil.
+ 4.3 Seat Hold and Booking Process
+ 1. 
+2. 
+3. 
+4. 
+Seat reservation: When a rider requests a booking, the Booking service creates a PENDING booking
+ and reserves the seat in Redis with a TTL (e.g., 10 minutes). This prevents concurrent riders from
+ taking the same seat.
+ Payment initiation: The payment service returns a payment intent (widget token and URL) to the
+ frontend. The seat hold TTL can be extended if a payment attempt is ongoing.
+ Payment confirmation: On payment success (via webhook), the backend atomically transitions the
+ booking to PAID/CONFIRMED, decrements the seats in Postgres and issues a ticket; idempotency
+ ensures duplicate webhooks are handled correctly.
+ Failure handling: If payment fails or the TTL expires before payment completes, the booking is
+ cancelled and the seat is released back into inventory. In case of late webhooks or chargebacks,
+ reconciliation logic ensures funds and seats are consistent.
+ 3
+4.4 Payment & Ticketing
+ • 
+• 
+• 
+Payments must use hosted provider widgets (e.g., Interswitch) to minimise PCI scope. Providers
+ return widgetToken and paymentUrl to the frontend.
+ Payment webhooks are idempotent: processed events are recorded to prevent duplicate processing.
+ On payment success, the Ticketing service generates a signed ticket payload; a hash (or Merkle root)
+ is stored on-chain for tamper-evidence while full ticket details remain off-chain.
+ 4.5 Notifications and Support
+ • 
+• 
+• 
+Notifications microservice pushes booking confirmations, payment status and driver arrival alerts via
+ push/SMS/email. Push tokens are registered via 
+/v1/notifications/token .
+ Admin APIs allow searching bookings, issuing refunds and adjusting user statuses.
+ Disputes, no‑shows and partial refunds are handled with appropriate business rules.
+ 4.6 Non‑Functional & Security Requirements (Backend)
+ • 
+• 
+• 
+• 
+• 
+Latency & throughput: Matchmaking p95 latency ≤200 ms and mean booking latency <150 ms.
+ Morning/evening peaks must be handled (100+ requests/sec) using caching and horizontal scaling.
+ Consistency: Seat inventory updates must be strongly consistent, using transactions
+ (SELECT FOR UPDATE) or distributed locks.
+ High availability: Core booking and payment APIs must meet 99.95 % uptime.
+ Observability: Use Prometheus, Grafana and ELK/Loki for metrics, tracing and logging. Payment
+ f
+ lows should emit events for reconciliation and analytics.
+ Security: JWT-based auth, TLS everywhere, encrypted sensitive fields (BVN/ID), and secrets stored in
+ Vault or a cloud manager. Ticket verification uses cryptographic signatures stored on-chain.
+ 5. ML / Matching Requirements
+ 5.1 Purpose and Goals
+ The matching engine retrieves and ranks drivers near the rider’s hub to ensure that riders see relevant
+ options quickly. Key goals include fast retrieval, high match quality, transparent explanations and
+ robustness under peak demand. P95 response time must remain ≤200 ms even when many riders search
+ simultaneously.
+ 5.2 Route Matching Logic
+ • 
+• 
+• 
+Exact match: The driver’s final destination exactly matches the rider’s destination or lies within the
+ same designated area. These matches receive the highest relevance score and are surfaced first.
+ Partial overlap: The driver’s route contains the rider’s destination as an intermediate stop; the
+ driver continues beyond the rider’s stop on the same corridor. Partial matches are valid but receive
+ slightly lower scores than exact matches.
+ Directionality: The rider’s destination must appear after the hub in the driver’s ordered stop list.
+ Drivers traveling in the opposite direction (e.g., north vs south) are filtered out.
+ 4
+5.3 Candidate Retrieval
+ The engine narrows down drivers through geospatial and temporal filters before scoring:
+ 1. 
+2. 
+3. 
+4. 
+Origin Hub context: Determine the rider’s hub (centre of search).
+ Geospatial filter: Retrieve drivers within roughly 150 m of the hub or whose declared start hub
+ matches. A geohash or R‑tree index is used; fallback to hub‑tagged lists allows constant‑time
+ retrieval.
+ Temporal filter: Keep only drivers whose departure times fall within ±15 minutes of the rider’s
+ desired time. Adjustments allow slight extensions if necessary.
+ Route match check: Apply exact/partial match logic and directionality; discard drivers whose routes
+ don’t include the rider’s destination before the driver’s final stop.
+ 5.4 Scoring & Ranking
+ A rule‑based scoring function computes a composite score for each candidate using normalized
+ components:
+ • 
+• 
+• 
+• 
+RouteMatchScore: exact = 1.0; partial = 0.8.
+ TimeScore: linear decay from 1.0 when departure time difference is 0 to 0 when the difference
+ reaches 15 minutes.
+ RatingScore: driver’s average rating normalized to [0,1]; default to 0.5 if no ratings.
+ PriceScore: inverse relative cost (cheaper rides get higher scores).
+ A sample weighting is 0.4 × RouteMatchScore + 0.3 × TimeScore + 0.2 × RatingScore + 0.1 × PriceScore.
+ Results are sorted in descending order; ties break by better route match, earlier departure or deterministic
+ driver id.
+ 5.5 Explanation System
+ For transparency, each match includes human‑readable reason tags: “Exact match to X”, “Passes your stop
+ via Y”, “Leaving soon” or quality indicators like “★ 4.8 driver”. Tags are generated from match type, time
+ difference, ratings and price. Explanations are short and updated if driver details change.
+ 5.6 Seat Availability & Locking
+ The matching system must integrate with the Booking service’s seat hold mechanism. When a rider selects
+ a match and initiates booking, a seat is atomically reserved; other riders cannot take it. The system must
+ handle race conditions, partial failures and duplicates by using database transactions or distributed locks;
+ idempotency safeguards ensure only one reservation per request.
+ 5.7 Driver Shift Model
+ Drivers post “shifts” that define the data used by matching:
+ • 
+Hub ID (origin), departure time, ordered stop list (including destination), available seats, price per
+ seat, driver metadata. Shifts expire after departure (plus grace period) or when seats reach zero.
+ Edits to departure time or route are restricted once riders have booked.
+ 5
+5.8 Performance & Metrics (Matching)
+ • 
+• 
+• 
+• 
+Latency: P95 matching latency ≤200 ms; use in‑memory caches and minimal external calls.
+ Coverage: Aim for a high percentage of rider searches returning ≥2 viable matches; adjust filters if
+ too few results.
+ Ranking quality: Track Top‑1 success rate (booked driver equals top suggestion) and Top‑3 hit rate
+ (booked driver among top 3).
+ Robustness: Monitor error rate, booking success rate, uptime and availability; fall back to cached
+ lists if necessary.
+ 6. Frontend Requirements
+ 6.1 Platforms and Tech Stack
+ • 
+• 
+• 
+Mobile: React Native (Expo or bare) with TypeScript; state management via Zustand + React Query;
+ navigation via React Navigation; sockets via socket.io‑client; maps via react‑native‑maps; geolocation
+ via OS‑native modules; secure storage for tokens; local database (SQLite/WatermelonDB) for cached
+ bookings and tickets.
+ Admin web: React + TypeScript SPA using shared types and API clients; role‑based access controls.
+ Shared packages: centralised type definitions and API clients generated from OpenAPI specs.
+ 6.2 UI Structure & Screens
+ Rider App: Splash/Onboarding, Auth (phone → OTP), Home (map + nearby rides), Search/Route Results (list
+ + map), Route Detail (stops, driver profile, seats, price), Booking & Payment modal (hosted widget), Ticket
+ screen (QR + details), Trip screen (live map, ETA, contact driver, share trip), History/Receipts, Profile/Wallet/
+ Settings, Help & Report.
+ Driver App: Splash/Auth, Driver Dashboard (online toggle, current route summary), Route Management
+ (create/edit/recur), Bookings queue, Trip screen (progress, rider list, check‑in), Earnings/Payouts, KYC/
+ Documents, Settings & Support.
+ Admin Web: Login (SSO), Driver verification queue, Booking search & dispute resolution, Payouts and
+ ledger view, Metrics dashboard with live map.
+ Reusable components include MapView wrappers with clustering, AnimatedMarkers, Ride/Route cards,
+ Payment modal wrapper, QR scanner/verifier, Rating & Report modals and UI patterns like toast and bottom
+ sheet.
+ 6.3 API & Socket Integration
+ The frontend consumes the backend REST/GraphQL APIs and listens to WebSocket events. Important
+ endpoints and events include:
+ • 
+Authentication:
+ /v1/auth/send-otp (request OTP) and 
+return JWT).
+ /v1/auth/verify-otp (verify OTP,
+ 6
+Route search & details:
+ • 
+• 
+• 
+• 
+• 
+GET /v1/routes?lat=&lng=&timeWindow= returns a list of 
+RouteSummary ; 
+GET /v1/routes/{routeId} returns detailed information.
+ Bookings:
+ POST /v1/bookings creates a booking and seat hold; 
+cancel cancels it; 
+POST /v1/bookings/{id}/
+ GET /v1/bookings/{id}/ticket fetches the ticket (QR).
+ Payments:
+ POST /v1/payments/initiate returns a widget token and payment URL.
+ Driver routes & check‑in:
+ POST /v1/drivers/routes and 
+PUT /v1/drivers/routes/{id}
+ create or update routes; 
+POST /v1/drivers/check-in/{bookingId} marks check‑in.
+ Notifications:
+ POST /v1/notifications/token registers FCM tokens; 
+GET /v1/earnings
+ fetches driver earnings.
+ WebSocket events (via Socket.IO) support live interactions:
+ • 
+Client emits: 
+driver:online , 
+driver:location , 
+driver:accept_booking , 
+rider:subscribe , 
+driver:checkin , 
+trip:message .
+ • 
+Server emits: 
+booking:pending , 
+booking:confirmed , 
+payment:status , 
+notification .
+ driver:location , 
+trip:update , 
+The frontend must handle authentication on socket connection by sending the JWT in the handshake and
+ handle reconnection logic and message queuing (for offline or poor connectivity).
+ 6.4 Performance and Resilience (Frontend)
+ • 
+• 
+• 
+• 
+• 
+• 
+Cold start & UI performance: App cold start should be <2 s; top‑matches response perceived
+ <300 ms. Use loading skeletons and caching to achieve this.
+ Realtime latency: Driver location updates should reach the subscribed rider within 300 ms.
+ Battery & background: Driver background location should not consume more than 8 % battery per
+ hour; use OS‑specific location strategies and throttling (distance filter 5–10 m, interval 3–5 s).
+ Offline & error handling: Display cached routes when offline; allow offline QR verification (using
+ cached public key); fall back to 5 s polling for location if sockets disconnect. Provide clear guidance if
+ payment times out or seat hold expires.
+ Security & privacy: Store JWT in secure storage, use HTTPS, request permissions with clear
+ justifications and never log PII. Show minimal rider information to drivers and vice versa.
+ Observability: Integrate with Sentry for crash/error reporting and send analytics events (e.g., app
+ start, search latency, booking attempts, payment initiation/failure, trip start/completion, background
+ location permission).
+ 6.5 Testing & Deployment
+ • 
+• 
+• 
+Unit tests using Jest and React Native Testing Library; E2E tests using Detox or Appium ensure flows
+ from login to booking and ticket display.
+ CI/CD pipeline using Expo EAS or Fastlane with GitHub Actions; store build artifacts and run
+ automated QA before deploying to stores.
+ Feature toggles & environment configuration should be supported via remote configuration
+ service for incremental rollouts.
+ 7
+7. Cross‑Team Integration & Ownership
+ 7.1 Backend ↔ ML/Matching
+ • 
+• 
+• 
+Matching request & response: The backend (Search service) calls the Matchmaking service with 
+{hubId, riderDestId|coords, desiredDeparture, timeWindow} and receives a list of
+ candidates containing 
+driverTripId , match type (exact/partial), time difference, normalized
+ component scores, total score and reason tags.
+ Seat locking: The booking flow must atomically reserve seats; the matching engine should not
+ allocate more riders than seats available. The booking service finalizes seat deductions on payment
+ confirmation.
+ Data feeds: The ML team requires anonymized training data (features and outcomes) to train
+ reranking models. Backend must log match outcomes, bookings and rider choices and expose
+ analytics streams accordingly.
+ 7.2 Backend ↔ Frontend
+ • 
+• 
+• 
+API Contracts: Backend exposes REST endpoints defined above, using OpenAPI for schema
+ generation; frontend uses generated clients and shared TypeScript models.
+ Realtime Channels: WebSocket events deliver live booking and location updates; both sides must
+ adhere to documented payload schemas.
+ Payment & Ticketing Flow: Frontend initiates payment via 
+hosted widget, polls or listens for 
+/v1/payments/initiate , shows the
+ payment:status events, then displays the ticket once 
+• 
+GET /
+ v1/bookings/{id}/ticket returns.
+ Error Handling: Frontend surfaces friendly error messages if the API gateway indicates service
+ unavailability (>99.95 % downtime) or if a seat hold expires.
+ 7.3 ML/Matching ↔ Frontend
+ • 
+• 
+• 
+Explanation display: Frontend displays reason tags in ride cards and list items; the ML service must
+ ensure each candidate has at least one meaningful tag.
+ Ranking updates: If a GBDT reranker is deployed, the relative order of results may change.
+ Frontend should not hard‑code assumptions about ordering; instead, always respect the provided
+ ranking and scores.
+ Fallbacks: If the matching service is unavailable or times out, fallback to a basic proximity/time filter
+ on the backend and show limited results with a warning to the user.
+ 8. Future Extensions (Roadmap)
+ Although not required for the MVP, future releases may add:
+ • 
+• 
+• 
+Multi‑hub matching: Expand candidate retrieval to include nearby hubs and allow cross‑hub
+ matches when a rider’s hub has no results.
+ Detour‑aware matching: Allow drivers to pick riders slightly off their route within a maximum
+ detour time or distance, with dynamic route adjustments.
+ Advanced ML reranking: Train GBDT or neural models on historical match outcomes to refine
+ ranking beyond the rule‑based scores.
+ 8
+• 
+• 
+• 
+Batch matching/assignment: Use algorithms like the Hungarian method to optimally assign
+ multiple riders to multiple drivers during peak hours.
+ Enhanced pricing & incentives: Introduce dynamic pricing, promotions and fairness constraints
+ (e.g., limiting the number of riders assigned to a single driver).
+ Enhanced support tools: More granular admin dashboards for fraud detection, ride audit trails and
+ AI‑assisted dispute resolution.
+ 9. Conclusion
+ This unified requirements document brings together the backend, ML and frontend perspectives for
+ OpenRide’s MVP and sets clear performance, security and functional expectations. By adhering to the
+ microservice architecture, leveraging a rule‑based matching engine with clear explanations, and providing
+ resilient, user‑centric mobile and web clients, the platform aims to deliver a reliable daily commute solution
+ for communities in Lagos and beyond.

@@ -1,0 +1,636 @@
+OpenSeat Matching System Technical Specification
+ 1. Overview
+ The OpenSeat matching system is designed to efficiently connect drivers and riders within
+ the same community hub for daily ridesharing. It ensures that riders quickly see relevant
+ driver options, improving user experience by minimizing wait times and offering convenient
+ choices. Technically, the system retrieves drivers departing soon from the rider’s hub and
+ ranks them based on route alignment and other factors. This AI/ML-powered matching
+ engine directly impacts user experience by increasing successful matches (more filled seats)
+ and providing transparency (explanations for each match). The result is a fast, reliable feed of
+ ride options that encourages trust and frequent use.
+ Key Goals and Impact:
+ Fast, Relevant Matches: Return a sorted list of drivers within milliseconds, so riders can
+ instantly find a ride that fits their route and timing. This reduces search friction and wait
+ anxiety.
+ High Match Quality: Only show drivers whose routes and schedules align with the
+ rider’s needs (same origin hub, correct direction, overlapping destination corridor),
+ ensuring high likelihood of acceptance.
+ Transparency: Provide reason tags explaining each match (e.g. exact route match,
+ passes near destination, leaving soon) to build user trust in the recommendations.
+ Robustness: Handle concurrent requests and bookings safely (no double bookings), and
+ maintain performance (95th percentile latency under 200 ms) even under peak morning
+ demand. The system must be resilient to missing or edge-case data (e.g. new drivers
+ with no ratings) and degrade gracefully (e.g. show “no matches” or suggest alternatives
+ if none found).
+ 2. Route Matching Logic
+ Route matching determines if a given driver’s trip is compatible with a rider’s requested trip.
+ In the MVP, all drivers and riders share the same origin hub (e.g. a specific bus stop or
+ community location), so origin matching is implicit. The matching logic then focuses on
+ destination and route alignment. We define two levels of route match and enforce
+ directionality:
+ 2.1 Exact Origin-Destination Match
+An exact match occurs when the driver’s final destination exactly matches the rider’s desired
+ destination (or falls within the same designated hub/area). In practice, this means the driver
+ is going to the same end location or neighborhood the rider wants to reach. For example, if
+ a rider from the hub wants to go to Victoria Island (VI) and a driver has posted a trip from
+ the hub to VI, this is an exact match. These matches are ideal because the driver and rider
+ share both origin and destination, requiring no extra detours or drop-off adjustments.
+ Identification: Compare the driver’s destination identifier (e.g. a geo-hash, address, or
+ hub ID) with the rider’s requested destination. If they match exactly, flag as an exact
+ route match.
+ Implication: Exact matches are the highest relevance and typically will be ranked at the
+ top due to maximum convenience for the rider.
+ 2.2 Partial Route Overlap
+ A partial overlap match means the driver’s route covers the rider’s destination as an
+ intermediate stop along the way. The driver is going beyond the rider’s stop on the same
+ corridor, so the rider can be dropped off en route. For example, a driver traveling from the
+ hub to a farther destination (e.g. beyond Lekki) might pass through Lekki where the rider
+ needs to stop. In this case, the rider’s destination lies along the driver’s path
+ mediatum.ub.tu…
+ .
+ Partial overlaps are valid matches because the driver can drop the rider off without major
+ deviation, though the driver’s ultimate destination is further out.
+ Identification: We compare the rider’s destination or corridor to the sequence of stops or
+ the path of the driver’s route. If the rider’s destination is on the driver’s route (before the
+ driver’s final stop), we classify it as a partial match. This can be determined by checking
+ the driver’s announced route stop list for the rider’s destination, or by verifying that the
+ straight-line direction and major road align (for MVP, we assume drivers input their
+ route stops). For instance, if a driver’s route stop list is [Hub → Lekki → VI] and the
+ rider’s destination is Lekki, that’s a partial overlap (driver’s trip includes Lekki then
+ continues onward).
+ Implication: Partial matches are slightly less ideal than exact matches (rider doesn’t go to
+ the final destination, but gets off earlier). They are still highly relevant and shown to the
+ rider, with a note that the driver’s route passes the rider’s stop (e.g. “Passes your stop
+ via Lekki”). Riders may need to do a short onward walk or know that the driver continues
+ further.
+ 2.3 Directionality Enforcement
+ Directionality ensures that matches only occur when the driver is heading in the correct
+ direction along the route relative to the rider’s goal. Since all users start at the same hub,
+ directionality pertains to the sequence of travel. A rider going east should only see drivers
+ going east, not west. Concretely, if the road or corridor from the hub splits directions, we do
+ not match a rider to a driver whose destination is behind or opposite to the rider’s
+ destination relative to the hub.
+Implementation: If routes are represented as an ordered list of stops from the hub, we
+ enforce that the index/order of the rider’s destination in that list is correct. For an exact
+ match, this is trivially satisfied (same end stop). For partial overlaps, the rider’s stop must
+ come before the driver’s final stop in the route order. If the driver’s route does not
+ include the rider’s location at all (e.g. going a different direction entirely), that driver is
+ filtered out. Directionality checks prevent illogical pairings (e.g. a driver going north
+ should not appear for a rider going south, even if distances seem close).
+ Geospatial check: In cases where we only have coordinates, we can enforce directionality
+ by ensuring the angle or bearing from the hub to the rider’s destination is within a
+ tolerance of the bearing to the driver’s destination. However, because MVP uses explicit
+ routes or hubs, a simpler check using route stops or known corridor IDs suffices.
+ By combining exact and partial match logic with directionality, the system guarantees that
+ every shown driver can physically take the rider towards their destination without
+ backtracking. Non-matching or opposite-direction trips are excluded entirely from the
+ candidate list to avoid confusion.
+ 3. Candidate Retrieval Algorithm
+ The candidate retrieval stage finds all potential driver trips that could match a given rider’s
+ request, before scoring and ranking. It applies geospatial and temporal filtering to quickly
+ narrow down relevant drivers from the database of active trips. This ensures the subsequent
+ scoring stage only considers viable candidates. The retrieval process can be summarized in
+ steps:
+ 1. Identify Origin Hub Context: Determine the rider’s current hub (or specified origin). In
+ MVP, this is straightforward as the rider is searching from a particular community hub.
+ We treat this hub as the center of the search.
+ 2. Geospatial Filter (Proximity): Query for drivers who are currently near the hub (within
+ ~150 m radius) or whose declared start hub matches the rider’s hub. This uses a
+ geospatial index to ensure only drivers starting essentially at the same location are
+ considered.
+ 3. Temporal Filter (Departure Time): From those drivers, filter further to include only trips
+ leaving within a specified time window relative to the rider’s desired departure. The
+ default window is ±15 minutes from the current time (if the rider is looking “now”) or
+ from the rider’s chosen departure time. This ensures the rider only sees drivers
+ departing soon enough to be practical (e.g. if it’s 6:30 AM, they’ll see drivers leaving
+ roughly between 6:15 AM and 6:45 AM).
+ 4. Route Match Check: Apply the route matching logic (Section 2) to each remaining
+ candidate. Discard any driver whose route does not yield at least a partial overlap match
+ with the rider’s destination (including directionality). At this point, all candidates in
+ consideration are drivers who (a) are at the same hub vicinity, (b) are leaving around the
+ right time, and (c) are going in the rider’s direction toward the desired area.
+ 5. Result Set for Scoring: The filtered list of candidates is passed to the scoring and
+ ranking module to be ordered by relevance.
+3.1 Geospatial Indexing (Hub Proximity Filter)
+ To efficiently retrieve drivers around the hub, the system maintains a geospatial index of
+ active driver posts. Since in MVP all drivers originate from known hubs, this can be
+ implemented as a simple lookup by hub ID (like a map from hub -> list of drivers) coupled
+ with a radius check. We define a radius of ~150 meters around the hub’s coordinate to allow
+ slight variance in where drivers mark themselves (in case a driver is slightly up the street
+ from the hub).
+ The index could be a geohash-based index or R-tree storing driver locations for quick
+ radial queries. For example, when a rider searches, we convert the hub’s lat-long to a
+ geohash at a predefined precision and retrieve drivers from a cached set of geohash
+ buckets nearby.
+ Because hubs are fixed points, an even simpler approach is to tag each driver’s post with
+ a hub ID and only query that hub’s list. The 150 m radius acts as a safety net for GPS
+ variance.
+ This approach is extremely fast; geo-index lookups can return candidates in a few
+ milliseconds. (At larger scale, systems like Uber use geohash+Redis to achieve sub
+200 ms matching latency globally
+ medium.com
+ .)
+ Robustness: If the geospatial lookup returns no drivers (e.g. no one is at that hub right now),
+ the system returns an empty result (or a “no drivers available” message). We avoid searching
+ beyond the hub in MVP to keep things scoped, but future expansions might incorporate
+ nearby hubs (see Future Extensions). The 150 m radius is configurable to tune results (for
+ example, in a very large hub area, it could be increased).
+ 3.2 Time Window Filtering
+ Each driver post includes a departure time (when they plan to leave the hub). We filter
+ drivers to those departing close to the rider’s needed time to ensure temporal alignment:
+ By default, we use a ±15 minute window around the current time if the rider wants to
+ leave as soon as possible. For scheduled rides (rider plans for a future time), we apply
+ ±15 minutes around that requested time.
+ This window captures drivers leaving slightly earlier or later than the rider. A slight lead
+ (driver leaving a bit early) might be okay if the rider can hurry, and a slight delay (driver
+ leaving later) might be acceptable if the rider can wait a few minutes. The window size is
+ chosen to balance sufficient options vs. relevance (15 minutes is short enough that
+ waiting or rushing is feasible for a commuter).
+ Implementation: The system can maintain an index or simply filter in-memory. For
+ instance, driver postings at a hub could be stored in a min-heap or sorted list by time,
+ allowing efficient retrieval of those within the window. A typical query might be: SELECT
+ * FROM drivers WHERE hub_id = X AND depart_time BETWEEN (t0 - 15min) AND (t0 +
+ 15min) . This can use a DB index on departure_time.
+ Robustness: We must consider current time vs. driver’s posted time:
+If a driver’s departure time has already passed (and they didn’t update or the system
+ didn’t expire it yet), that posting should be excluded. A periodic job or trigger will expire
+ those posts (see Driver Shift Model for post expiration).
+ If no drivers are in the exact ±15 min window, we might relax the filter slightly (e.g. show
+ ones leaving a bit further out, marked as “leaving in 20 min”) rather than showing
+ nothing. However, MVP will likely stick strictly to ±15. Riders can always adjust their
+ query time if needed.
+ After geospatial and time filtering, we usually have a manageable list of candidates (often a
+ handful, given a single hub and short time window). This list is then ready for the scoring
+ phase.
+ 4. Scoring and Ranking
+ Once candidate driver matches are retrieved, the system scores each match to rank them in
+ order of relevance or desirability to the rider. The MVP uses a rule-based scoring function
+ that combines multiple factors with predetermined weights. In future iterations, this can be
+ augmented with a machine learning reranker for improved accuracy.
+ 4.1 Rule-Based Scoring Function
+ We define a composite score for each driver–rider pair based on the following components:
+ Route Match Type: How well the driver’s route matches the rider’s destination. Exact
+ matches are ideal and receive the highest score for this component, while partial
+ overlaps receive slightly lower. (If a candidate were somehow only a very loose match, it
+ might score even lower or be excluded entirely.)
+ Time Proximity: The difference between the driver’s departure time and the rider’s
+ desired time. Smaller time gaps yield higher scores. A driver leaving exactly at the rider’s
+ preferred time is perfect (max points), whereas one leaving 15 minutes later or earlier (at
+ the edge of the window) gets fewer points.
+ Driver Rating: The driver’s average rating in the platform (e.g. from past rider reviews). A
+ higher-rated driver contributes a positive boost to the score, as riders likely prefer well
+rated, trusted drivers. New drivers with no rating can be treated as neutral (e.g. default
+ to average rating score).
+ Price/Fare: The price the driver is charging for the seat (if drivers can set a price within a
+ range). Lower prices are more attractive to riders and thus result in a better score. A very
+ expensive ride (relative to others in the list or a baseline) would score lower on this
+ component. (In the OpenSeat model, prices are relatively standardized, but slight
+ differences or promotions could exist.)
+ Scoring Formula: Each factor is normalized to a common scale (e.g. 0 to 100 or 0.0 to 1.0)
+ and weighted. For example, we might use a 0–1 scale for each:
+ Route match: exact = 1.0, partial = 0.8 (exact matches get 100% of the route score,
+ partial matches 80%).
+Time proximity: could be a linear scale where a 0 min difference = 1.0 and 15 min
+ difference = 0.0, or a piecewise function (e.g. >15 min gets 0). We might give a driver
+ leaving in 5 minutes ~0.67, leaving in 10 minutes ~0.33, etc., linearly.
+ Rating: normalize driver’s rating (e.g. 4.5 out of 5 stars becomes 0.9). If no rating, use 0.5
+ as neutral.
+ Price: if ₦400 is baseline (1.0) and ₦800 is on high end (0.0), we can scale inversely within
+ that range. Alternatively, assign full score for the cheapest in the set and relative scores
+ for others.
+ Then apply weights to reflect importance. For instance:
+ markdown
+ Total Score = (0.4 * RouteMatchScore) 
+            +
+            +
+            +
+ (0.3 * TimeScore) 
+ (0.2 * RatingScore) 
+ (0.1 * PriceScore)
+ Copy code
+ In this hypothetical weighting, route match and time alignment are most important, driver
+ rating slightly less, and price slightly less again. (The weights can be tuned based on user
+ research or future data on what riders care about most.)
+ Finally, the system sorts candidates by descending total score. The highest score appears as
+ the top recommendation in the rider’s feed (likely an exact match leaving very soon with a
+ good driver at a low price), and so on. If two matches have very similar scores, we can apply
+ tie-breakers (for example, prefer the one with the better route match, then earlier departure,
+ etc., or simply deterministic by driver ID to keep ordering stable).
+ Robustness: The rule-based approach is transparent and predictable but may require
+ tweaking. We’ll monitor outcomes – for example, if riders consistently prefer cheaper rides
+ even if slightly less aligned, we might increase the weight of price. The system should also
+ handle missing data: e.g., if rating is missing, the rating component is neutral. The scoring
+ function should be unit-tested for various scenarios (extreme times, edge prices, etc.) to
+ ensure it behaves as expected (no negative scores, etc.).
+ 4.2 Optional ML Reranker (Gradient-Boosted Trees)
+ In the post-MVP phase, we plan to incorporate a machine learning reranking model to
+ improve match ordering beyond the simple weighted formula. One approach is to use a
+ gradient-boosted decision tree (GBDT) model (e.g. XGBoost or LightGBM) trained on
+ historical match outcomes. This ML reranker would take the initial candidate list (perhaps top
+ N from the rule-based score) and reorder it based on a learned prediction of “match
+ success” or rider preference.
+ How it works:
+We collect training data over time: features of driver-rider pairs (route match type, time
+ difference, rating, price, plus potentially other features like driver’s reliability, past
+ acceptance rate, day of week, etc.) along with an outcome label (e.g. whether the rider
+ actually booked that driver, or which suggestion was clicked).
+ Train a GBDT model to predict the probability of a successful booking or a high
+ satisfaction for the rider given those features.
+ In production, for each search request, generate features for each candidate. The ML
+ model outputs a score or probability for each candidate reflecting how “good” that
+ match is likely to be for the user.
+ We then sort by this ML score (possibly blending with the rule-based score or using it to
+ adjust the ordering).
+ GBDTs are chosen because they handle mixed feature types well and provide interpretability
+ to some extent (feature importance). They can capture non-linear interactions, e.g., maybe
+ riders will accept a slightly later time if the price is much lower – a tree can learn that
+ interaction whereas the linear formula might not.
+ During MVP, this is optional – the rule-based ranking is simpler and easier to reason about
+ with no cold-start data. Over time, as we gather more data, the ML reranker can be
+ introduced and A/B tested against the rule-based system.
+ Robustness & Performance: The reranker should be fast (in-memory prediction for a small
+ number of candidates is usually <10ms) and should fallback gracefully. If the model fails or is
+ unavailable, the system should default to the rule-based ordering. We’ll also continuously
+ evaluate the ML model to avoid any biased or unintuitive results. Feature engineering will
+ ensure we only use features available at query time (no leaking future info).
+ 5. Explanation System
+ To enhance transparency and user confidence, the matching system provides a brief
+ explanation for each driver match shown to the rider. These are presented as human
+readable reason tags alongside or under each driver listing. The explanation system
+ translates the raw factors and logic behind the match into simple phrases.
+ Each match may have one or multiple tags that highlight its best aspects:
+ Route Match Tag: Indicates how the route aligns. For an exact match, we tag something
+ like “Exact match to {Destination}” (e.g. “Exact match to VI” if the driver’s destination is
+ Victoria Island, exactly what the rider searched). For a partial overlap, we generate a tag
+ like “Passes your stop via {Major Stop}” (e.g. “Passes your stop via Lekki” if the driver will
+ go through Lekki where the rider needs to get off). This communicates that the driver
+ isn’t going exactly to the rider’s final stop, but will pass near it.
+Timing Tag: Highlights the time suitability. If the driver is leaving very soon (within a few
+ minutes), we might show “Leaving soon” or “Departing in 5 min”. If the driver’s departure
+ is just before the rider’s requested time, a tag like “On time for you” could be used.
+ Conversely, if it’s at the far end of the window (e.g. 15 minutes later), maybe “Leaves
+ slightly later” could inform the rider.
+ Other Tags: We can include a tag for driver quality, e.g. “★ 4.8 driver” (showing a star
+ and rating) or “Top rated driver” if the driver has an excellent rating. Price could also be a
+ tag if noteworthy, e.g. “Lowest price” if that driver’s fare is the cheapest among the list. In
+ MVP, we will likely show rating and price as separate UI elements anyway, so the explicit
+ tags might focus on route and time, but they are available to use for emphasis.
+ Generation: These tags are generated by rules corresponding to the scoring factors:
+ The system knows the match type (exact or partial) and the key location names from the
+ route, so it can format an “Exact match to X” or “Via Y” string accordingly.
+ It calculates the time difference and can easily phrase it (“in X minutes” or “X minutes
+ later than you wanted”).
+ It fetches the driver’s rating and relative price ranking to decide if those are notable to
+ mention.
+ We ensure the tags are short (a few words each) and positive/informative. They are displayed
+ in a visually distinct manner (e.g. colored labels or icons) to help the rider scan the list. Each
+ match will have at least one tag (route match is always present).
+ Examples:
+ Driver A: “Exact match to VI” and “Leaving soon” – meaning this driver is going exactly
+ to Victoria Island, and is departing shortly (highly relevant).
+ Driver B: “Passes your stop via Lekki” – meaning the driver goes through Lekki where
+ you need to get off (partial route match). If Driver B is also leaving a bit later, no “leaving
+ soon” tag, but maybe their rating is high, so the app might show a star icon with 4.9.
+ Driver C: “Exact match to VI” and “Top rated driver” – maybe this one leaves slightly later
+ but is exact match and has a great rating, so we emphasize those.
+ The explanation system is crucial for user trust: it allows riders to understand why a
+ particular driver was shown (especially important when using AI/ML). It also helps them
+ make a decision between multiple options (for example, choosing between a driver leaving
+ sooner vs. one going exactly to the destination). These explanations are generated in real
+time alongside scoring, using simple template strings.
+ Robustness: All matches will have at least a route tag by design. If for some reason a factor is
+ not applicable (e.g. all drivers are leaving at the same time, so maybe the top one doesn’t
+ need a “leaving soon” because they all are), we won’t show redundant tags. We must ensure
+ that the tags remain truthful and update if the driver changes details (e.g. if a driver delays
+ departure, the “Leaving soon” tag might need to be removed or updated). The system
+ should re-evaluate tags whenever the match list is refreshed.
+6. Seat Availability and Locking
+ To prevent double-booking and ensure seat counts remain accurate, the system implements
+ a seat availability management with an atomic locking mechanism for bookings. Each
+ driver’s post includes a number of available seats (capacity). When a rider attempts to book a
+ seat with a driver, the system must securely decrement the available seats without allowing
+ race conditions (two riders taking the last seat simultaneously).
+ Atomic Hold (Reservation) Mechanism:
+ When a rider selects a driver and initiates a booking, the system performs an atomic
+ reserve of one seat before finalizing the booking. This can be done with a database
+ transaction or a distributed lock. For example, an update query can check and
+ decrement in one step:
+ sql
+ UPDATE driver_trips 
+SET available_seats = available_seats - 1 
+WHERE trip_id = X AND available_seats > 0;
+ Copy code
+ Only one transaction will succeed if two try at the same time (the one that goes second
+ will find available_seats already 0 and fail).
+ Alternatively, we can use an in-memory locking service or Redis atomic counter. The key
+ is to do it in one operation to avoid the classic read-modify-write race condition. Big
+ booking systems solve this by short locks/holds during user confirmation
+ observabilityguy…
+ .
+ We pair this with a short TTL (time-to-live) hold concept: once a seat is reserved for a
+ rider, the rider gets e.g. 2 minutes to complete payment/confirmation. During this time,
+ the seat count is reduced for others (so they won’t see an extra seat or will see it as
+ “booking…”). If the rider completes booking, the hold becomes permanent. If they
+ cancel or the time expires without confirmation, the system releases the hold (increment
+ the seat back by 1).
+ Capacity Checks on Confirmation:
+ When the rider finalizes the booking (payment confirmed or they press “Book”), the
+ system double-checks the seat count. If using the above atomic update approach, the
+ seat was already decremented and essentially held for this rider. We then mark the seat
+ as taken and finalize the transaction.
+ If for any reason the seat was not actually available (e.g. another booking just took it, or
+ the driver removed the listing), the booking attempt fails gracefully. The rider would get
+ a message “Seat no longer available” and the app will prompt them to choose another
+ driver. This is rare with the atomic method, but we handle it.
+ After successful booking, the driver’s available_seats count is now reduced. If it hits zero,
+ the trip is effectively full. We then either remove that driver from further search results
+ or mark them as “Full” so no more bookings can be initiated.
+Concurrency and Atomicity: By reserving a seat with a locked operation, we prevent race
+ conditions that could lead to double bookings. This approach is pessimistic (lock early, then
+ commit) which is appropriate given typically low contention (a driver has maybe 1-3 seats,
+ and it’s unlikely dozens of people are competing for the same seat at the exact millisecond,
+ but we still protect against the case of two interested riders). This way, even under load, we
+ avoid scenarios where two riders both think they secured the last seat
+ observabilityguy…
+ Robustness considerations:
+ .
+ The system must handle partial failures: if a seat hold is made but the final confirmation
+ fails (network issue, etc.), we need to release the seat after a timeout or on explicit
+ cancellation. Implementing the hold with a TTL (e.g. a temporary flag that auto-expires
+ after 2 minutes) ensures seats aren’t stuck in limbo.
+ If a driver manually reduces seats or cancels the trip during someone’s booking process,
+ our transaction should detect that (e.g. the update will fail if available_seats was
+ changed to 0 or trip status set to canceled). In such cases, inform the rider and roll back.
+ All seat adjustments and bookings should be done in a transactional context to
+ maintain data integrity. We will use the database’s transaction isolation (or a service with
+ similar guarantees) to ensure that two updates don’t interleave improperly.
+ We will also implement idempotency safeguards: if a rider somehow sends duplicate
+ booking requests (e.g. double-taps), only one should succeed. A unique booking
+ request ID or using the same transaction token can help avoid duplicate charges or
+ double-reservations.
+ In summary, seat availability is tightly controlled. This locking system ensures once a seat is
+ promised to a rider, no one else can take it inadvertently, thereby preserving a consistent
+ and fair booking process.
+ 7. Driver Shift Model (Trip Posting Rules)
+ Each driver’s offering (trip) is represented by a Driver Shift model, which contains all the
+ data needed for matching and booking. A “shift” or trip post typically has these attributes:
+ Hub ID (Origin): The community hub or pickup point where the driver starts.
+ (Additionally, we store the exact geolocation, but hub ID is used for matching).
+ Departure Time: The date and time the driver intends to leave the hub.
+ Route Stop List: An ordered list of key stops or the final destination that the driver will
+ reach. This could include intermediate waypoints if the driver chooses to specify (e.g.
+ “Hub → Lekki → VI” as a series of places along the route). At minimum, it includes the
+ final destination. This defines the route corridor for matching logic.
+ Available Seats: The number of seats the driver is offering for riders (e.g. 1 to 3). This
+ decreases as riders book seats.
+ Price per Seat: The fare the driver is charging per seat (if variable). In OpenSeat’s model
+ this might be constrained to a range, but we keep it as part of the model for the scoring
+ logic.
+Driver ID and Metadata: (Not used in matching directly, but stored) References to the
+ driver’s profile, vehicle, rating, etc., which can be used in scoring (rating) and displayed.
+ This model is created when a driver posts their commute and is active until the trip occurs or
+ is canceled.
+ Post Expiration Rules:
+ A driver’s post automatically expires after the departure time passes (plus a small grace
+ period). For example, once the current time is five minutes past the scheduled
+ departure, the system marks the trip as expired and it will no longer be shown in
+ searches. This accounts for slight delays but ensures old listings disappear.
+ Expiration can be handled by a background job that periodically flags trips as expired or
+ by queries that inherently ignore trips with departure < now.
+ If a trip reaches full capacity (0 seats left) well before departure, we might also stop
+ showing it (since no seats are available). However, the system could alternatively show it
+ as “Full” to riders searching, which might not be useful, so likely we filter those out of
+ results.
+ Edit and Cancellation Windows:
+ Editing: Drivers are allowed to edit certain details of their trip up to a point. For instance,
+ a driver can adjust their departure time or cancel stops before any rider has booked
+ without issue. Once a rider is booked on the trip, edits should be restricted:
+ The driver cannot change the origin hub or fundamental route (that would
+ invalidate the match for any booked riders).
+ The driver should not advance the departure time earlier (because the rider has
+ planned for the original time), though they might be allowed to delay it slightly
+ (with rider notification/approval) if running late. We might allow a small delay (e.g.
+ up to 5-10 minutes) without auto-cancel, but this is more of a post-MVP
+ consideration.
+ Available seats can be reduced (if, say, the driver decides not to take as many
+ people) only if the remaining available seats ≥ already booked seats (i.e., you
+ cannot remove a seat that’s filled). Increasing seats (up to some max) is possible if
+ the driver’s vehicle allows, to offer more capacity.
+ Cancellation: A driver can cancel their trip outright, but we discourage last-minute
+ cancellations. If a driver cancels and a rider was booked, the system should immediately
+ notify the rider and possibly assist them in finding another match. We could impose a
+ cutoff (e.g. drivers cannot cancel within X minutes of departure without penalty or
+ system intervention) to ensure reliability.
+ Data Refresh and Consistency:
+ Drivers can post their shifts in advance (perhaps the night before or recurring weekly
+ schedules). The matching system will consider them when within the 15-minute window
+ of departure.
+If a driver edits the departure time forward or backward, the time filtering automatically
+ accounts for the new time. If they edit the destination or route (again, only allowed pre
+booking), that will affect which riders see them (route match logic recalculates).
+ We maintain consistency by locking the trip record during edits or booking updates, to
+ avoid race conditions between a driver editing and a rider booking simultaneously.
+ By defining these rules, we maintain a structured supply of rides:
+ Riders see reliable information (no drastic changes last second).
+ Stale posts are removed, keeping search results clean.
+ Capacity is accurately tracked.
+ The system can enforce fairness (no bait-and-switch on times or routes after riders
+ commit).
+ 8. Performance and Evaluation
+ We establish performance targets and evaluation metrics to ensure the matching system
+ operates efficiently and effectively. These metrics guide engineering improvements and
+ validate the system against our goals.
+ 8.1 Latency Targets
+ The matching service must be highly responsive. Our goal is a P95 latency ≤ 200 ms for the
+ matching operation (from the time a rider submits a search to the time the ranked list of
+ matches is returned, excluding network latency to the app). In other words, 95% of match
+ queries should complete in under 0.2 seconds. This ensures a near-instantaneous feel when
+ the user searches for rides.
+ Achieving this involves efficient in-memory lookups and minimal external calls. The
+ geospatial and time filters are designed to be index-friendly, and the candidate list is
+ typically small (due to hub & time constraints), making scoring fast.
+ We will monitor p50, p95, p99 latencies in production. If p95 exceeds 200 ms under
+ load, we may need to optimize (caching frequently used queries, scaling the service
+ horizontally, etc.). For example, caching the list of current drivers at a hub in a fast store
+ (updated in real-time as drivers post) can allow retrieval in <50 ms. Industry systems use
+ similar tricks like geospatial indexing in memory to keep matching fast
+ medium.com
+ .
+ We also target high throughput: the service should handle the morning peak load
+ (potentially dozens of riders searching simultaneously across hubs) with stable latency.
+ We’ll use load testing to verify that matching remains under 200 ms at, say, 100 requests
+ per second globally (adjust numbers as per expected usage).
+ 8.2 Matching Coverage
+ Coverage metrics assess how well the platform provides options to riders. A key metric is the
+ percentage of rider searches that return at least 2 viable matches. We aim for, say, X% of
+ searches to yield 2 or more results. Viable matches mean they meet basic criteria (route
+ aligned, timely, not full).
+Rationale: We want riders to have a choice of drivers whenever possible, rather than a
+ single option or none. If a high percentage of searches yield 2+ options, it indicates
+ healthy supply and that our matching logic is not overly restrictive.
+ We will calculate coverage daily/weekly. If coverage is low (e.g. many searches return 0
+ or 1 result), we investigate whether it’s a supply issue (not enough drivers) or if our
+ matching filters are too tight (maybe we need to extend the time window or radius
+ slightly).
+ Another metric: Fill rate of seats can also be tracked (how many posted seats get
+ booked). Though more of a business metric, it can reflect match success.
+ 8.3 Ranking Quality Metrics
+ To evaluate the effectiveness of our ranking (and later ML reranking), we define a couple of
+ metrics based on rider selection:
+ Top-1 Success Rate: The frequency that the rider ends up booking the top-ranked driver
+ suggestion. If this is high, it means our ranking did a good job putting the most
+ appealing option first. For instance, if out of 1000 searches that led to a booking, in 800
+ of them the booked driver was the first in the list, top-1 success rate is 80%.
+ Top-3 Hit Rate: The frequency that the rider’s chosen driver was within the top 3
+ suggestions. This captures cases where the rider might not choose the very first option
+ but chooses one of the top few. We want this to be very high (the vast majority of
+ successful bookings should come from the first 3 shown), indicating our system isn’t
+ burying good matches deep in the list.
+ If we introduce an ML reranker, we’ll also measure metrics like Mean Reciprocal Rank
+ (MRR) or normalized Discounted Cumulative Gain (nDCG) based on implicit feedback
+ (clicks or bookings) to quantify ranking improvements.
+ These metrics will be computed from logs of user behavior. During testing phases, we might
+ simulate choices or use surveys to gauge if the ranking aligns with rider preference (when
+ data is sparse early on).
+ Latency vs. Quality: We ensure that the addition of scoring and ML doesn’t hurt latency
+ beyond acceptable bounds. The 200 ms target is for the full pipeline. If ML reranking (for
+ example) adds some overhead, we might do it in parallel or limit it to top-N candidates to
+ keep within targets. Real-user monitoring of latency and result quality will guide fine-tuning.
+ 8.4 System Robustness Metrics
+ Beyond matching quality, we monitor:
+ Error Rate: How often does a search request fail or return an error. This should be near
+ zero. Any errors (due to, say, database timeouts or edge-case bugs) need immediate
+ fixing given this is a user-facing core service.
+ Booking Success Rate: Percentage of booking attempts that succeed on the first try. If
+ our locking is working, double-booking conflicts should be extremely rare. A high failure
+ rate here would indicate concurrency issues or inventory mismatches.
+Uptime and Availability: The matching system should be available 99.9%+ during peak
+ hours. Downtime or slowness directly translates to lost matches and frustrated users.
+ We’ll use monitoring and possibly fallbacks (e.g. a cached list of recent drivers) if the
+ service is temporarily down.
+ Regular evaluation against these metrics will help ensure the matching system is performing
+ as intended and highlight areas for improvement.
+ 9. Future Extensions
+ Looking ahead, the OpenSeat matching system can be enhanced with several advanced
+ features beyond the initial MVP scope:
+ 9.1 Multi-Hub Support
+ In MVP, we restricted matches to drivers and riders at the same hub. A future enhancement
+ is to allow multi-hub or cross-hub matching. This could operate in a few ways:
+ Neighboring Hubs: If a rider’s current hub has no matches, the system could look at
+ nearby community hubs (within a few kilometers or a reasonable distance) for drivers
+ whose route might pass near the rider. For example, if a rider is at Hub A, and there’s a
+ driver at Hub B (500m away) who goes right by Hub A’s area, the system could suggest
+ that driver as an option (with an indication like “Driver departs from [Hub B] nearby”).
+ Dynamic Origin Adjustment: Riders might be willing to walk a short distance to another
+ pickup point if it means a ride. The system could cluster hubs in an area and treat them
+ collectively for search. This requires expanding the geospatial filter beyond 150m to
+ perhaps a few km and including drivers from multiple hubs, then filtering those whose
+ route can incorporate the rider’s actual pickup.
+ Routing between Hubs: In a more complex scenario, the system could match riders
+ from one hub with drivers from another if the driver’s route goes near the rider’s hub.
+ This is essentially detour logic (see next section) applied to origin instead of destination.
+ Implications: Multi-hub support increases the candidate pool and coverage (fewer riders see
+ zero results). It does, however, complicate the logic: we must ensure to still enforce
+ directionality and not send riders too far off. It may also require UI changes (rider might
+ need to confirm they can start at a slightly different hub). Implementation-wise, we would
+ maintain an index of drivers by location not just hub ID, and allow a larger search radius (e.g.
+ 2km). Efficient spatial queries (perhaps using geo-index with range queries) become
+ important as the search area grows.
+ 9.2 Detour-Aware Matching and Dynamic Rerouting
+ Currently, we assume drivers stick to their posted route and do not deviate. In the future, we
+ can introduce detour-aware matching, allowing drivers and riders to match even if not a
+ perfect route inclusion, as long as the driver can make a small detour to pick up or drop off
+ the rider.
+Detour Threshold: We define a maximum detour time or distance (e.g. driver willing to
+ go at most 5 minutes or 1km off their direct route). The matching engine could then
+ consider riders slightly off the driver’s path. For instance, if a rider’s destination is a bit
+ adjacent to the main corridor, the system might still match if it’s within the detour
+ threshold for the driver.
+ Dynamic Rerouting: If such a match is made, the system would generate a new route
+ for the driver (using mapping APIs) that includes the rider’s stop. This new route would
+ be presented to the driver for approval or automatically if the driver pre-consented to
+ small detours. Essentially, the driver’s trip becomes Hub → (detour to rider drop-off) →
+ original destination.
+ Implementation: This requires more complex route computation. We’d integrate a route
+ engine (or an external map service) to check how far out of the way a potential match
+ would take the driver. We’d also likely need to score detour matches lower than direct
+ ones, or even present them separately (since detours imply slight inconvenience).
+ User Experience: The rider could see matches that are “almost” on their route with a
+ note like “Driver can drop you 1km off your location” or similar. The driver’s app might
+ notify them of an added stop if they accept a detour match.
+ Challenges: We must ensure fairness—drivers should be able to set how much detour they
+ accept. Additionally, detours affect other riders if the driver already has passengers, so multi
+passenger routing needs to consider aggregate detour for all. This extension moves the
+ system closer to a rideshare routing problem (like UberPool style route optimization).
+ 9.3 Learned Route Embeddings for Similarity Search
+ To improve matching flexibility, we can leverage AI to represent routes in a vector space.
+ Route embeddings would allow the system to find “similar” routes even if they are not
+ identical in terms of explicit stops.
+ Concept: Use historical trip data to train a model (for example, a neural network) that
+ embeds a route (sequence of coordinates or hubs) into a high-dimensional vector.
+ Routes that cover similar corridors or directions would end up close in this embedding
+ space.
+ Usage: When a rider specifies a desired route or destination, we embed that request the
+ same way and then perform a nearest-neighbor search in the embedding space to find
+ driver routes that are most similar. This could surface matches that the strict rule-based
+ logic might miss. For example, if a driver’s destination isn’t exactly the same or
+ containing the rider’s, but the majority of the route overlaps (say 80% common path),
+ the embedding might capture that similarity and rank it highly.
+ Advantages: This approach can handle cases like multiple alternate routes to the same
+ area (maybe one driver goes via a highway, another via local roads; they don’t share
+ explicit stop names, but an embedding can learn they’re effectively going in the same
+ direction). It can also incorporate context (time of day, typical traffic) if the model is
+ extended.
+Implementation: We might use a two-tower neural network (one tower for driver route,
+ one for rider request) trained to predict match/no-match, which inherently learns route
+ embeddings. At query time, it’s essentially an ML inference that gives a score. This could
+ augment or replace some rule heuristics. We would need a vector database or efficient
+ approximate nearest neighbor index if we use pure embeddings for retrieval at scale.
+ Stage: This is a longer-term R&D extension. It would require accumulating enough data
+ on routes and matches to train effectively. Initially, simpler approaches like clustering
+ routes by hub/destination (e.g. using K-means on frequent destinations) can provide
+ some of this benefit (which we already consider by grouping corridors).
+ 9.4 Multi-Rider Batch Matching (Global Optimization)
+ As the platform grows, we may face scenarios with multiple riders requesting and multiple
+ drivers available simultaneously. A future extension is to implement a global matching
+ optimization algorithm (such as the Hungarian algorithm or other assignment solvers) to
+ optimally pair riders to drivers when there is competition or overflow.
+ Use Case: Imagine 5 riders and 3 drivers all from the same hub around the same time.
+ Each driver has 2 seats. Instead of greedily letting riders pick in a non-coordinated way,
+ the system could consider all requests in a batch and assign riders to drivers in a way
+ that maximizes overall satisfaction (for instance, maximizing total route match score, or
+ ensuring every rider gets a seat if possible).
+ Algorithm: We can construct a bipartite graph where one set is riders (or rider seats
+ needed) and the other set is driver seats available. Edge weights could be the
+ compatibility score (higher means a better match). Then solve an assignment problem
+ to choose who goes with whom such that the total score is maximized. The Hungarian
+ algorithm is a classic method for this kind of optimization.
+ Integration: In a real-time system, this could be done in micro-batches (gather requests
+ over a small time window, then solve). However, implementing this needs careful
+ consideration of user experience – riders might have to wait a short moment to “see if
+ they got a seat” if we go this route. Alternatively, this can be used behind the scenes to
+ suggest to drivers which riders to accept if multiple requests come.
+ Benefit: This can increase seat utilization and fairness. It avoids a less optimal scenario
+ where, say, two riders both choose the same driver (filling one car and leaving another
+ driver empty), whereas a smarter assignment could have split them so both drivers have
+ one rider each, everyone gets to go.
+ Future State: This is likely an advanced mode or for cases like corporate shuttle
+ planning. The MVP user-driven selection model may suffice initially. If introduced, it
+ might operate in a “suggested assignment” mode with user confirmation, to not
+ undermine the user’s sense of choice.
+ Each of these extensions would be added carefully, ensuring the core matching logic remains
+ robust. They highlight how the system can evolve from a simple, hub-based matching service
+ to a more sophisticated platform handling complex routing and at-scale optimization, all
+ while leveraging AI/ML to continuously improve match quality.
+Citations
+ tits-pelzer-2413453-x.pdf
+ https://mediatum.ub.tum.de/doc/1280455/133793.pdf
+ Design Uber/Ola/Rapido/Lyft. A Scalable, Fault-Tolerant Architecture… | by The Abs…
+ https://medium.com/thesystemdesign/design-uber-ola-rapido-lyft-599ac5d6c0a5
+ Scalable Solutions for Double Booking: System-Design Strategies from Tech Giants |…
+ https://observabilityguy.medium.com/scalable-solutions-for-double-booking-system-design-strategies
+from-tech-giants-53de62fd1368
+ All Sources
+ mediatum.ub.tum
+ medium
+ observab...uy.medium

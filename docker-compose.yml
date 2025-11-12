@@ -1,0 +1,119 @@
+version: '3.9'
+
+services:
+  # PostgreSQL with PostGIS for geospatial queries
+  postgres:
+    image: postgis/postgis:14-3.3
+    container_name: openride-postgres
+    environment:
+      POSTGRES_DB: openride
+      POSTGRES_USER: openride_user
+      POSTGRES_PASSWORD: openride_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - openride-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openride_user -d openride"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and distributed locks
+  redis:
+    image: redis:7-alpine
+    container_name: openride-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - openride-network
+    command: redis-server --appendonly yes --requirepass openride_redis_password
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: openride-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@openride.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - openride-network
+    depends_on:
+      - postgres
+
+  # Redis Commander for cache inspection
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: openride-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:openride_redis_password
+    ports:
+      - "8081:8081"
+    networks:
+      - openride-network
+    depends_on:
+      - redis
+
+  # Kafka & Zookeeper (optional for Phase 0, uncomment when needed)
+  # zookeeper:
+  #   image: confluentinc/cp-zookeeper:7.5.0
+  #   container_name: openride-zookeeper
+  #   environment:
+  #     ZOOKEEPER_CLIENT_PORT: 2181
+  #     ZOOKEEPER_TICK_TIME: 2000
+  #   ports:
+  #     - "2181:2181"
+  #   volumes:
+  #     - zookeeper_data:/var/lib/zookeeper/data
+  #     - zookeeper_logs:/var/lib/zookeeper/log
+  #   networks:
+  #     - openride-network
+
+  # kafka:
+  #   image: confluentinc/cp-kafka:7.5.0
+  #   container_name: openride-kafka
+  #   depends_on:
+  #     - zookeeper
+  #   ports:
+  #     - "9092:9092"
+  #     - "9093:9093"
+  #   environment:
+  #     KAFKA_BROKER_ID: 1
+  #     KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+  #     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:9093
+  #     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+  #     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+  #     KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+  #     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+  #   volumes:
+  #     - kafka_data:/var/lib/kafka/data
+  #   networks:
+  #     - openride-network
+
+networks:
+  openride-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+  # zookeeper_data:
+  # zookeeper_logs:
+  # kafka_data:

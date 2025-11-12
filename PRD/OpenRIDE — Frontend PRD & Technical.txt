@@ -1,0 +1,387 @@
+OpenRIDE — Frontend PRD & Technical 
+Requirements (Comprehensive) 
+Purpose: This document is the full frontend Product Requirements Document (PRD) and 
+technical specification for OpenRide (mobile Rider + Driver apps, and Admin web 
+backoffice). It is written for frontend engineers, UI/UX designers, product managers, and 
+stakeholders who will build, test and operate the client-side of OpenRide. 
+It maps to the backend PRD (booking, payments, ticketing, matching, realtime) and 
+specifies UI flows, screen-level requirements, realtime behavior, offline/resilience, security, 
+observability, testing, and delivery expectations. 
+1. Executive summary 
+OpenRide's frontend must deliver a highly responsive, low-latency, battery-conscious mobile 
+experience for Riders and Drivers, plus a secure Admin web UI. Core mobile 
+responsibilities: 
+● Provide fast, frictionless onboarding (OTP) and KYC flows. 
+● Expose search/discovery and booking flows that map to the backend booking API 
+(seat holds, payment flows and ticket issuance). 
+● Real-time driver <-> rider tracking with animated map markers, ETA updates, and trip 
+lifecycle states. 
+● Reliable background location (drivers) and push notifications for critical events. 
+● Strong UX for payments (hosted widget), ticket QR verification, SOS and dispute 
+reporting. 
+● Make interactions observable, local-cache friendly, and resilient to intermittent mobile 
+networks. 
+Primary goals / KPIs: 
+● App cold-start time < 2s (first meaningful paint). 
+● Search → top matches response perceived < 300ms (backend target <150ms). 
+● Driver location update latency < 300ms from server to subscribed rider client for 
+active trips. 
+● Payment success rate as reported by backend > 98% (frontend to surface actionable 
+errors). 
+● Crash-free session rate > 99.5% after v1. 
+● Battery impact: driver background location should not increase device battery drain > 
+8% per hour in typical commute patterns. 
+SLA expectations (frontend-facing): 
+● API availability surface: surface friendly error messages if gateway > 99.95% down. 
+● Realtime UX should degrade gracefully (polling fallback) if sockets are interrupted. 
+2. Product scope & core use cases (frontend view) 
+2.1 Primary user types (frontend) 
+● Riders — mobile app: search routes/stops, book seats, pay via hosted widget, show 
+ticket QR and live-track driver. 
+● Drivers — mobile app: create/manage routes, go online/offline, emit background 
+location, accept bookings, check-in riders via ticket QR. 
+● Admin/Operations — web app: verify drivers, resolve disputes, view trip telemetry 
+and take actions. 
+2.2 Core UX flows (high-level) 
+1. Onboarding & Auth 
+○ Phone number → OTP → JWT → role routing (rider/driver). 
+○ Driver KYC flow: upload license, vehicle photos; show pending/approved 
+state. 
+2. Driver posts route 
+○ Create route screen with ordered stops (map picker + manual address), 
+schedule recurrence (RRULE-like UI), seats, price suggestion (from 
+backend). 
+3. Rider search & discovery 
+○ Map-first home screen; search by name or tap map; filter by time window. 
+○ Show top N matches with JCS reasoning snippet. 
+4. Booking 
+○ Select route → pickup stop → payment widget (hosted) → reserved seat 
+confirmation. 
+○ Show ticket (QR + ticket details) immediately upon backend ticket generation. 
+5. Realtime trip 
+○ Rider subscribes to driver channel: live driver marker, ETA, arrival alerts. 
+○ Driver keeps background location sending; app shows assigned riders list & 
+check-in controls. 
+6. Check-in / boarding 
+○ Driver scans rider QR or enters ticket id to check-in (offline verification via 
+signature when necessary). 
+7. Trip completion & rating 
+○ Post-trip rating UI and quick report form for incidents. 
+8. Disputes & support 
+○ In-app report with auto-attached trip logs and ticket evidence. 
+2.3 Edge cases / degradations UX 
+● No network: show cached routes for scheduled rides, allow offline QR verification 
+(signature check) for drivers (if previously fetched public key). 
+● Socket disconnects: switch to 5s polling for driver location; surface small banner 
+"Live tracking degraded — reconnecting…". 
+● Payment timeouts: show clear guidance and retry flows; if seat-hold TTL lapses, 
+explain and offer rebook/back-to-search. 
+3. Frontend technical architecture (high level) 
+Design principles: modular, typed, observable, testable, resilient, power-efficient. 
+3.1 Topology (client-centric) 
+● Mobile apps (React Native, TypeScript): 
+○ Rider App (iOS + Android) 
+○ Driver App (iOS + Android) — same codebase with role-based features 
+● Admin web UI (React + TypeScript) — separate SPA 
+● Shared packages: types, API client, UI tokens (monorepo packages) 
+● Backend integration: 
+○ REST/GraphQL for CRUD & booking calls 
+○ WebSocket (Socket.IO) for realtime channels 
+○ Push service: Firebase Cloud Messaging (FCM) 
+○ Hosted payment widget (Interswitch) via WebView or native SDK (use 
+provider hosted flow to minimize PCI scope) 
+● Local stores: 
+○ SecureStorage / Keychain for JWT 
+○ SQLite or MMKV for local cache (bookings, scheduled rides) — drivers need 
+local persistence for offline check-in 
+● Background workers: 
+○ Background geolocation agent (drivers) — OS-native service using headless 
+JS or native modules 
+3.2 Recommended frontend tech stack 
+● Framework: React Native (Expo for faster iteration OR bare React Native for native 
+SDKs); TypeScript 
+● Navigation: React Navigation v6 (Stack + Tab + Modal) 
+● State mgmt: Zustand (lightweight) + React Query (data fetching/caching & 
+background sync) 
+● Realtime: socket.io-client (with Redis adapter on server) 
+● Maps: react-native-maps (Google Maps on Android & iOS) or Mapbox if Mapbox 
+features required 
+● Geolocation: react-native-geolocation-service and 
+react-native-background-geolocation (paid option) or 
+react-native-background-fetch + native location implementation 
+● Secure storage: react-native-keychain or SecureStore (Expo) 
+● Local DB: WatermelonDB / Realm / SQLite (lightweight local store for bookings & 
+tickets) 
+● Forms & UI: React Hook Form + UI library (react-native-paper / native-base) + 
+Tailwind (nativewind) optional 
+● Push: @react-native-firebase/messaging 
+● Crash & error: Sentry 
+● Testing: Jest + React Native Testing Library; Detox for E2E or Appium 
+● Build & CI: EAS (Expo Application Services) or Fastlane + GitHub Actions 
+● Monitoring: Sentry + custom metrics (via OpenTelemetry SDK for frontends) and 
+mobile analytics 
+4. UI structure & component map 
+High-level screen map (Rider & Driver): 
+Rider 
+● Splash / Onboarding 
+● Auth (Phone -> OTP) 
+● Home (Map + Nearby scheduled rides) 
+● Search / Route results (list + map) 
+● Route Detail (stops, driver profile, seats, price) 
+● Booking & Payment Modal (hosted widget) 
+● Ticket Screen (QR + details) 
+● Trip Screen (live map, driver ETA, contact driver, share trip) 
+● History / Receipts 
+● Profile / Wallet / Settings 
+● Help & Report Issue 
+Driver 
+● Splash / Auth 
+● Driver Dashboard (online toggle, current route summary) 
+● Route Management (Create / Edit / Recur) 
+● Bookings queue (incoming requests) 
+● Trip Screen (trip progress, rider list, check-in via QR) 
+● Earnings / Payouts 
+● KYC / Documents 
+● Settings & Support 
+Admin (Web) 
+● Login (SSO) 
+● Driver Verification Queue 
+● Booking search & dispute resolution 
+● Payouts & ledger view 
+● Metrics dashboard & live map 
+Reusable components 
+● MapView wrapper with clustering 
+● AnimatedMarker (smooth interpolation) 
+● RideCard, RouteCard 
+● PaymentModal & HostedWebViewWrapper 
+● QRScanner & QRVerifier (local signature check) 
+● RatingModal & ReportForm 
+● Toast & BottomSheet patterns 
+5. Data & client models (UI-level) 
+Frontend will maintain typed DTOs that mirror backend canonical models, reduced to UI 
+needs: 
+● User { id, name, phone, role, photo, kycStatus, rating } 
+● DriverProfile { id, vehicle: {plate, model}, rating, activeRoutes[] } 
+● RouteSummary { id, driverId, name, stops[], departureTime, seatsAvailable, price } 
+● Stop { id, name, lat, lon, address } 
+● Booking { id, routeId, riderId, status, seatCount, paymentStatus, ticketId } 
+● Ticket { id, ticketHash, qrPayload, issuedAt, validUntil } 
+● LocationUpdate { driverId, lat, lon, heading, timestamp } 
+● TripStatus enum per backend 
+All models must be strongly typed in TypeScript and shared across mobile + admin 
+packages where possible. 
+6. API surface & socket contracts (exposed to frontend) 
+The frontend consumes these APIs (mirror of backend endpoints). Use 
+OpenAPI/Swagger to generate typed clients. 
+REST endpoints (major) 
+● POST /v1/auth/send-otp (payload: { phone }) → 200 
+● POST /v1/auth/verify-otp (payload: { phone, code }) → { token, user } 
+● GET /v1/routes?lat=&lng=&timeWindow= → list RouteSummary 
+● GET /v1/routes/{routeId} → RouteDetail 
+● POST /v1/bookings (routeId, pickupStopId, dropoffStopId, seats) → { bookingId, 
+paymentIntent } 
+● POST /v1/payments/initiate (bookingId) → { widgetToken, paymentUrl } 
+● POST /v1/bookings/{id}/cancel → cancellation flow 
+● GET /v1/bookings/{id}/ticket → QR payload & signature 
+● POST /v1/drivers/routes → create route 
+● PUT /v1/drivers/routes/{id} → update route 
+● POST /v1/drivers/check-in/{bookingId} → mark check-in 
+● GET /v1/users/me → profile 
+● POST /v1/notifications/token → register FCM token 
+● GET /v1/earnings → driver earnings summary 
+WebSocket (Socket.IO) events — client ↔ server 
+Connection handshake: on connect, send auth token in auth or connect query. Server 
+verifies JWT. 
+Client emits 
+● driver:online { driverId, routeId } 
+● driver:location { driverId, lat, lon, heading, ts } 
+● rider:subscribe { bookingId | driverId } 
+● rider:unsubscribe { bookingId | driverId } 
+● driver:accept_booking { bookingId } 
+● driver:checkin { bookingId, ticketId } 
+● trip:message { bookingId, message } (chat) 
+Server emits 
+● booking:pending { bookingId, routeId, pickupStopId } 
+● booking:confirmed { bookingId, driverId, routeId } 
+● driver:location { driverId, lat, lon, heading, ts } (for subscribed 
+riders) 
+● trip:update { bookingId, status } (ARRIVING, STARTED, COMPLETED) 
+● payment:status { bookingId, status } 
+● notification { type, payload } 
+Event payloads must be documented in OpenAPI + socket.io event schema; frontend to 
+validate and handle. 
+7. UX & Interaction details 
+Map & location UX 
+● Map center behavior: 
+○ Rider: center on route or follow driver during trip; allow manual pan (with 
+"recenter" affordance). 
+○ Driver: center on own vehicle; show stops and upcoming riders. 
+● Animated marker interpolation: 
+○ Use AnimatedRegion or manual position interpolation for smooth transitions; 
+update every driver:location event. 
+● ETA & route recalculation: 
+○ Use server-provided ETA; optionally fallback to Google Directions on client for 
+local smoothing but avoid heavy API calls. 
+● Battery & permissions: 
+○ Request precise location; explain why to user. 
+○ Background operation: explain to driver and provide settings to disable. 
+Payments UX 
+● Use hosted payment widget (Interswitch) inside WebView or redirect to SDK to avoid 
+PCI. 
+● After payment is initiated, show progress and lock seat hold TTL; if payment fails, 
+show recovery flow. 
+● On success, show ticket QR immediately, with copyable ticketId and share option. 
+Ticket & QR 
+● Ticket screen accessible offline if previously fetched; QR must include signature so 
+driver can verify even offline (public key must be cached). 
+● QR scanner: accept compressed QR payload; perform local signature verification 
+first; call backend to finalize check-in if online. 
+Safety & SOS 
+● Prominent SOS button during trip — sends event to Notification microservice with 
+current location and phone. 
+● Share-trip link: create deep link with limited TTL; allow sharing via SMS/WhatsApp. 
+Error states 
+● Payment widget closed prematurely: show "Payment incomplete — reattempt" CTA. 
+● Seat hold expired while paying: offer rebook or refund as per backend policy. 
+8. Offline, background & resilience 
+Background location (Drivers) 
+● Implement OS-specific background location strategies: 
+○ iOS: use allowsBackgroundLocationUpdates and request Always 
+permission; explain usage in App Store privacy. 
+○ Android: use foreground service with persistent notification while driving. 
+● Send batched updates local->server when offline; reconcile when back online 
+(preserve order; sign each update with timestamp). 
+● Throttle updates by distanceFilter (e.g., 5–10m) and interval (3–5s) to 
+balance accuracy & battery. 
+Offline verification 
+● Cache public key for ticket signature verification. 
+● Cache booking/ticket minimal info for scheduled rides so drivers can verify boarding 
+offline. 
+Reconnect & queue 
+● Implement local queue for socket messages (e.g., accept booking) — idempotency 
+keys used to handle replays on server. 
+9. Security & privacy (frontend obligations) 
+● Store JWT in secure storage (Keychain / Keystore), not AsyncStorage for sensitive 
+tokens. 
+● Use short-lived tokens + refresh flow; re-auth on token expiration. 
+● WebSocket requires token in auth handshake; server must reject invalid tokens. 
+● Do not log PII to client-side logs; redact before sending to Sentry. 
+● Use HTTPS everywhere; pin TLS certificates optionally for sensitive flows. 
+● Enforce permission explanations (why location, camera for QR, storage) and allow 
+user to manage them in-app. 
+● Respect privacy: do not display full rider PII to nearby users; show minimal required 
+info (name, rating). 
+10. Observability, monitoring & analytics (frontend) 
+● Errors & crashes → Sentry (capture breadcrumbs). 
+● Key metrics to send to analytics backend (Segment/GA/Amplitude or custom 
+telemetry): 
+○ App starts, auth success rate, search latency, booking attempts, payment 
+initiations, payment failures, trip start/complete, background location 
+permission granted, socket disconnects/reconnects. 
+● Trace important flows: correlate client events with server correlation IDs returned in 
+API responses. 
+● Performance monitoring: 
+○ Measure render times for map & trip screens, memory consumption, and app 
+bundle size. 
+● Privacy: ensure analytics conform to data retention & user consent. 
+11. Accessibility & localization 
+● Localize app strings for English (Nigeria) and optionally Hausa/Yoruba/Igbo later. Use 
+i18n (i18next). 
+● Follow accessibility guidelines: labelled buttons, support larger fonts, color contrast 
+for map pins and CTA. 
+● Right-to-left not required initially but keep components flexible. 
+12. Testing requirements 
+Unit tests 
+● 80–90% coverage for UI logic & services (authService, bookingService, payment 
+adapter) 
+● Jest + React Native Testing Library 
+Integration tests 
+● Mock server & socket to test flows: booking → payment → ticket issuance → trip 
+updates. 
+● Test WebView payment flows with sandbox endpoints. 
+E2E tests 
+● Detox for deterministic device tests: login, create route (driver), search & book (rider), 
+simulate driver location updates and verify rider sees marker + complete trip. 
+Load & reliability tests (client-side) 
+● Simulate thousands of socket updates locally using test harness to ensure UI can 
+handle frequent updates without jank. 
+● Battery & memory profiling during background tracking. 
+Security tests 
+● Pen test client storage and QR verification flow to ensure no PII leaks. 
+● Test replays and idempotency keys for socket messages. 
+13. CI/CD, release & deployments 
+Build & release 
+● Use EAS Build (Expo) for managed workflow OR Fastlane for bare RN to produce 
+iOS & Android artifacts. 
+● Use GitHub Actions: 
+○ PR lint → run unit tests → build debug artifacts → run E2E on a dedicated 
+runner (optional). 
+○ On main merge run release build pipeline, upload to App Center / Play Store 
+/ App Store Connect. 
+Feature flags & staged rollout 
+● Integrate feature flags (LaunchDarkly or simple config service) to release matching 
+algorithm or payment providers gradually. 
+● Staged rollouts on Play Store/App Store for canary. 
+Beta testing 
+● Use TestFlight (iOS) and Play Console Internal Testing track for driver early testers. 
+14. Performance & scalability targets (client-side) 
+● Map tile usage: cache tiles where possible; limit requests to avoid throttling costs. 
+● Minimize calls to Directions API; rely on server ETA for frequent updates. 
+● Socket reconnection policy: exponential backoff with jitter; after N failed attempts, fall 
+back to polling. 
+● Keep main thread free: heavy processing (polyline decoding, signature verification) 
+should be offloaded to worker threads when available. 
+15. Compliance & legal considerations (frontend 
+aspects) 
+● Present clear Terms & Privacy, and obtain consent for location & background tracking 
+specifically for drivers. 
+● Expose data deletion and account export flows per user requests. 
+● Display receipts and tax invoices where necessary for corporate riders. 
+16. Deliverables & milestones (frontend) 
+MVP (4–8 weeks) — deliverables: 
+● Working React Native monorepo skeleton (Rider + Driver roles toggle). 
+● Auth flow (OTP + JWT). 
+● Map home screen + route search (uses backend mock). 
+● Booking flow + hosted payment widget integration (Interswitch sandbox). 
+● Live tracking demo: socket-based driver location updates and smooth marker on 
+rider app. 
+● Ticket QR generation & offline signature verification demo. 
+● Basic Driver route creation flow. 
+● Admin web skeleton (React) with driver verification list. 
+● Unit tests (≥ 80% for services) + Detox E2E test for booking→trip flow. 
+● CI pipeline for builds. 
+v1 (post-MVP): 
+● Background location stable for Android/iOS. 
+● Push notifications, SMS fallback registration. 
+● Earnings UI for drivers; payouts integration (view-only for MVP). 
+● Enhanced error handling and reconnection strategies. 
+● Analytics instrumentation + Sentry. 
+17. Appendix — recommended file structure (concrete) 
+apps/mobile/ 
+├─ src/ 
+│  ├─ api/ 
+│  │  ├─ client.ts 
+│  │  └─ endpoints.ts 
+│  ├─ components/ 
+│  ├─ screens/ 
+│  ├─ hooks/ 
+│  ├─ services/ 
+│  ├─ store/ 
+│  ├─ types/ 
+│  ├─ utils/ 
+│  └─ App.tsx 
+├─ app.json 
+└─ package.json 
+packages/ui/ 
+packages/types/ 
+packages/utils/ 
+apps/admin/ 
+18. Next recommended engineering tasks (actionable) 
+1. Generate OpenAPI + socket event contract from backend and scaffold typed client 
+using openapi-generator and socket.io types. 
+2. Create React Native monorepo with TypeScript and shared packages/types. 
+3. Implement Auth + token storage + skeleton Navigator (Auth → Rider/Driver). 
+4. Build Map home screen and Socket mock harness to simulate driver updates. 
+5. Integrate Interswitch sandbox flow into paymentService, hook into test webhook. 
+6. Add Sentry & analytics instrumentation. 
+7. E2E test for booking → payment → ticket → trip. 
