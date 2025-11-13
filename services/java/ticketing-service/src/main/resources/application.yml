@@ -1,0 +1,166 @@
+spring:
+  application:
+    name: ticketing-service
+  
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:openride}
+    username: ${DB_USER:openride}
+    password: ${DB_PASSWORD:openride}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+  
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+  
+  cache:
+    type: simple
+    cache-names: public-keys, tickets
+  
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: true
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: non_null
+
+server:
+  port: ${PORT:8086}
+  servlet:
+    context-path: /
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: never
+    include-exception: false
+
+# Security Configuration
+security:
+  jwt:
+    secret: ${JWT_SECRET:your-secret-key-minimum-256-bits-for-hs256-algorithm-security}
+    expiration: ${JWT_EXPIRATION:3600000} # 1 hour in milliseconds
+
+# Ticketing Configuration
+ticketing:
+  # Cryptography settings
+  crypto:
+    algorithm: ECDSA
+    curve: secp256k1
+    hash-algorithm: SHA-256
+    private-key-path: ${PRIVATE_KEY_PATH:/etc/openride/keys/ticketing-private.pem}
+    public-key-path: ${PUBLIC_KEY_PATH:/etc/openride/keys/ticketing-public.pem}
+    # For development only - auto-generate keys if not found
+    auto-generate-keys: ${AUTO_GENERATE_KEYS:true}
+  
+  # QR Code settings
+  qr:
+    width: 300
+    height: 300
+    format: PNG
+    error-correction-level: H # HIGH
+  
+  # Blockchain settings
+  blockchain:
+    enabled: ${BLOCKCHAIN_ENABLED:true}
+    provider: ${BLOCKCHAIN_PROVIDER:polygon} # polygon or hyperledger
+    
+    # Polygon Configuration
+    polygon:
+      network: ${POLYGON_NETWORK:mumbai} # mumbai (testnet) or mainnet
+      rpc-url: ${POLYGON_RPC_URL:https://rpc-mumbai.maticvigil.com}
+      chain-id: ${POLYGON_CHAIN_ID:80001} # 80001 for mumbai, 137 for mainnet
+      contract-address: ${POLYGON_CONTRACT_ADDRESS:0x0000000000000000000000000000000000000000}
+      wallet-private-key: ${POLYGON_WALLET_PRIVATE_KEY:}
+      gas-price-multiplier: ${POLYGON_GAS_PRICE_MULTIPLIER:1.2}
+      gas-limit: ${POLYGON_GAS_LIMIT:100000}
+      confirmation-blocks: ${POLYGON_CONFIRMATION_BLOCKS:2}
+    
+    # Hyperledger Fabric Configuration (alternative)
+    hyperledger:
+      channel-name: ${HLF_CHANNEL:ticketing-channel}
+      chaincode-name: ${HLF_CHAINCODE:ticketing-chaincode}
+      connection-profile: ${HLF_CONNECTION_PROFILE:/etc/hyperledger/connection-profile.json}
+      wallet-path: ${HLF_WALLET_PATH:/etc/hyperledger/wallet}
+      user-name: ${HLF_USER:admin}
+  
+  # Batch anchoring settings
+  batch:
+    enabled: ${BATCH_ANCHORING_ENABLED:true}
+    size: ${BATCH_SIZE:100} # Number of tickets per batch
+    max-wait-minutes: ${BATCH_MAX_WAIT:60} # Max wait time before forcing batch
+    cron: ${BATCH_CRON:0 0 */1 * * ?} # Every hour
+  
+  # Ticket validity settings
+  ticket:
+    validity-hours: ${TICKET_VALIDITY_HOURS:24} # Ticket valid for 24 hours after trip
+    cleanup-days: ${TICKET_CLEANUP_DAYS:90} # Keep tickets for 90 days
+
+# External Service URLs
+external:
+  booking-service:
+    url: ${BOOKING_SERVICE_URL:http://localhost:8083}
+    timeout-seconds: 10
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    export:
+      prometheus:
+        enabled: true
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.openride: DEBUG
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.web3j: INFO
+  pattern:
+    console: '%d{yyyy-MM-dd HH:mm:ss} - %msg%n'
+    file: '%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n'
+
+# Springdoc OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+  show-actuator: true
