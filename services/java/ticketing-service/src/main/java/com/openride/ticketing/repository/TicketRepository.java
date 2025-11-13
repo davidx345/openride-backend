@@ -74,4 +74,20 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
      * Check if ticket exists for booking.
      */
     boolean existsByBookingId(UUID bookingId);
+    
+    /**
+     * Find tickets by Merkle batch ID.
+     */
+    @Query("SELECT t FROM Ticket t WHERE t.merkleBatch.id = :batchId ORDER BY t.createdAt ASC")
+    List<Ticket> findByMerkleBatchId(@Param("batchId") UUID batchId);
+    
+    /**
+     * Count tickets created before a date.
+     */
+    long countByCreatedAtBefore(LocalDateTime dateTime);
+    
+    /**
+     * Delete tickets created before a date.
+     */
+    void deleteByCreatedAtBefore(LocalDateTime dateTime);
 }

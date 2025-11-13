@@ -70,6 +70,45 @@ services:
     depends_on:
       - redis
 
+  # Ticketing Service (Phase 6 - Blockchain-anchored tickets)
+  ticketing-service:
+    build:
+      context: ./services/java/ticketing-service
+      dockerfile: Dockerfile
+    container_name: openride-ticketing-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/openride
+      SPRING_DATASOURCE_USERNAME: openride_user
+      SPRING_DATASOURCE_PASSWORD: openride_password
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: openride_redis_password
+      TICKETING_BLOCKCHAIN_TYPE: POLYGON
+      TICKETING_BLOCKCHAIN_RPC_URL: ${POLYGON_RPC_URL:-https://rpc-mumbai.maticvigil.com/}
+      TICKETING_BLOCKCHAIN_PRIVATE_KEY: ${BLOCKCHAIN_PRIVATE_KEY}
+      TICKETING_BLOCKCHAIN_CONTRACT_ADDRESS: ${BLOCKCHAIN_CONTRACT_ADDRESS}
+      TICKETING_BLOCKCHAIN_CHAIN_ID: 80001
+      TICKETING_CRYPTO_PRIVATE_KEY_PATH: /app/keys/private_key.pem
+      TICKETING_CRYPTO_PUBLIC_KEY_PATH: /app/keys/public_key.pem
+      TICKETING_CRYPTO_AUTO_GENERATE_KEYS: true
+    ports:
+      - "8086:8086"
+    volumes:
+      - ticketing_keys:/app/keys
+    networks:
+      - openride-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
   # Kafka & Zookeeper (optional for Phase 0, uncomment when needed)
   # zookeeper:
   #   image: confluentinc/cp-zookeeper:7.5.0
@@ -114,6 +153,7 @@ volumes:
   postgres_data:
   redis_data:
   pgadmin_data:
+  ticketing_keys:
   # zookeeper_data:
   # zookeeper_logs:
   # kafka_data:
