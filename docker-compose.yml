@@ -109,6 +109,48 @@ services:
       retries: 5
       start_period: 60s
 
+  # Fleet Service (Phase 7 - Real-time tracking & WebSocket)
+  fleet-service:
+    build:
+      context: ./services/python/fleet-service
+      dockerfile: Dockerfile
+    container_name: openride-fleet-service
+    environment:
+      DATABASE_URL: postgresql+asyncpg://openride_user:openride_password@postgres:5432/openride
+      REDIS_URL: redis://redis:6379/0
+      REDIS_PASSWORD: openride_redis_password
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+      SERVICE_NAME: fleet-service
+      LOG_LEVEL: INFO
+      PORT: 8096
+      SOCKETIO_PATH: /socket.io
+      SOCKETIO_CORS_ALLOWED_ORIGINS: "*"
+      LOCATION_UPDATE_RATE_LIMIT: 5
+      MAX_CONNECTIONS_PER_DRIVER: 3
+      WORKER_CONNECTIONS: 1000
+      DB_POOL_SIZE: 20
+      DB_MAX_OVERFLOW: 10
+      REDIS_MAX_CONNECTIONS: 50
+      ENABLE_METRICS: true
+      METRICS_PORT: 9096
+    ports:
+      - "8096:8096"
+      - "9096:9096"
+    networks:
+      - openride-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8096/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
   # Kafka & Zookeeper (optional for Phase 0, uncomment when needed)
   # zookeeper:
   #   image: confluentinc/cp-zookeeper:7.5.0
