@@ -187,6 +187,61 @@ services:
   #   networks:
   #     - openride-network
 
+  # ClickHouse for analytics time-series data
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: openride-clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./services/python/analytics-service/clickhouse:/docker-entrypoint-initdb.d
+    networks:
+      - openride-network
+    environment:
+      CLICKHOUSE_DB: openride_analytics
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Analytics Service (Python FastAPI)
+  analytics-service:
+    build:
+      context: ./services/python/analytics-service
+      dockerfile: Dockerfile
+    container_name: openride-analytics-service
+    ports:
+      - "8097:8097"
+      - "9097:9097"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://openride_user:openride_password@postgres:5432/openride
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_DATABASE: openride_analytics
+      REDIS_URL: redis://:openride_redis_password@redis:6379/2
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+      LOG_LEVEL: INFO
+      DEBUG: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    networks:
+      - openride-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8097/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 networks:
   openride-network:
     driver: bridge
@@ -196,6 +251,7 @@ volumes:
   redis_data:
   pgadmin_data:
   ticketing_keys:
+  clickhouse_data:
   # zookeeper_data:
   # zookeeper_logs:
   # kafka_data:
