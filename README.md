@@ -16,8 +16,8 @@ OpenRide is built using a **microservices architecture** with 12 independent ser
 | **User Service** | User profiles, KYC management | 8082 |
 | **Booking Service** ⭐ | Seat inventory with ACID guarantees | 8083 |
 | **Payments Service** ⭐ | Payment orchestration, webhooks | 8084 |
-| **Ticketing Service** | Blockchain-backed ticket generation | 8085 |
-| **Payouts Service** | Driver earnings, settlements | 8086 |
+| **Payouts Service** | Driver earnings, settlements | 8085 |
+| **Ticketing Service** ✅ | Blockchain-anchored digital tickets | 8086 |
 
 ### Python FastAPI Services (Fast Iteration, ML/Geospatial)
 
