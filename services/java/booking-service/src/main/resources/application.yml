@@ -163,6 +163,12 @@ scheduler:
     orphaned-redis-cron: "0 */15 * * * *"      # Every 15 minutes
   enabled: true
 
+# Rate Limiting
+rate-limiting:
+  per-user:
+    requests-per-minute: 100    # Max requests per user per minute
+    burst-capacity: 20          # Initial burst capacity
+
 # OpenAPI Documentation
 springdoc:
   api-docs:

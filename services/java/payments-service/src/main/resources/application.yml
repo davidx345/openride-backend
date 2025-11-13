@@ -1,0 +1,151 @@
+spring:
+  application:
+    name: payments-service
+  
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:openride}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+    open-in-view: false
+  
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    schemas: public
+  
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+
+  security:
+    jwt:
+      secret: ${JWT_SECRET:change-me-in-production-very-long-secret-key-minimum-256-bits}
+      expiration-ms: 3600000 # 1 hour
+
+server:
+  port: ${PORT:8084}
+  servlet:
+    context-path: /api
+  error:
+    include-message: always
+    include-binding-errors: always
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+
+# Korapay Configuration
+korapay:
+  api-url: ${KORAPAY_API_URL:https://api.korapay.com}
+  secret-key: ${KORAPAY_SECRET_KEY:test_sk_xxx}
+  public-key: ${KORAPAY_PUBLIC_KEY:test_pk_xxx}
+  webhook-secret: ${KORAPAY_WEBHOOK_SECRET:test_webhook_secret}
+  timeout-seconds: 30
+  merchant-name: ${KORAPAY_MERCHANT_NAME:OpenRide}
+
+# Payment Configuration
+payment:
+  expiry-minutes: 15
+  max-retry-attempts: 3
+  retry-delay-seconds: 5
+  currency: NGN
+  supported-methods:
+    - CARD
+    - BANK_TRANSFER
+    - USSD
+    - MOBILE_MONEY
+
+# Redis Keys Configuration
+redis:
+  idempotency:
+    ttl-hours: 24
+    key-prefix: "payment:idempotency:"
+  webhook:
+    ttl-days: 7
+    key-prefix: "webhook:processed:"
+
+# Booking Service Integration
+booking-service:
+  url: ${BOOKING_SERVICE_URL:http://localhost:8083}
+  confirm-endpoint: /api/v1/bookings/{bookingId}/confirm
+  cancel-endpoint: /api/v1/bookings/{bookingId}/cancel
+  timeout-seconds: 10
+  max-retries: 3
+  retry-delay-seconds: 2
+
+# Reconciliation Configuration
+reconciliation:
+  enabled: ${RECONCILIATION_ENABLED:true}
+  schedule: "0 0 2 * * ?" # Daily at 2 AM
+  lookback-days: 7
+  batch-size: 100
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.openride: DEBUG
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# OpenAPI Documentation
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  show-actuator: false
