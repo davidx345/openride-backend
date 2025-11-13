@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# Build
+target/
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Logs
+*.log
+
+# Documentation
+README.md
+docs/
+
+# Test
+src/test/

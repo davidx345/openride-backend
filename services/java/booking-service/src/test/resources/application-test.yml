@@ -1,0 +1,36 @@
+server:
+  port: 0
+
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:14:///testdb
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+  redis:
+    host: localhost
+    port: 6379
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+booking:
+  hold:
+    ttl-minutes: 1
+    extension-minutes: 2
+  lock:
+    wait-time-seconds: 2
+    lease-time-seconds: 5
+
+scheduler:
+  enabled: false
+
+logging:
+  level:
+    root: WARN
+    com.openride.booking: DEBUG
+    org.testcontainers: INFO
