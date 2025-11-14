@@ -26,7 +26,7 @@ import java.util.UUID;
  * - Optimized indexes for performance
  */
 @Repository
-public interface BookingRepository extends JpaRepository<Booking, UUID> {
+public interface BookingRepository extends JpaRepository<Booking, UUID>, JpaSpecificationExecutor<Booking> {
 
     /**
      * Find booking by ID with pessimistic write lock
@@ -220,5 +220,18 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
         @Param("routeId") UUID routeId,
         @Param("travelDate") LocalDate travelDate,
         @Param("statuses") List<BookingStatus> statuses
+    );
+
+    /**
+     * Find bookings created between dates (for admin statistics)
+     * 
+     * @param fromDate From date
+     * @param toDate To date
+     * @return List of bookings
+     */
+    @Query("SELECT b FROM Booking b WHERE b.createdAt >= :fromDate AND b.createdAt < :toDate")
+    List<Booking> findByCreatedAtBetween(
+        @Param("fromDate") Instant fromDate,
+        @Param("toDate") Instant toDate
     );
 }
