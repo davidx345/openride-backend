@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db_session
+from app.auth import get_current_user
 from app.schemas import UserNotificationPreferenceUpdate, UserNotificationPreferenceResponse
 from app.services.preference_service import PreferenceService
 
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/v1/notifications/preferences", tags=["preferences"])
 
 @router.get("", response_model=UserNotificationPreferenceResponse)
 async def get_preferences(
-    user_id: UUID,  # TODO: Extract from JWT token
+    current_user: UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> UserNotificationPreferenceResponse:
     """
@@ -22,12 +23,12 @@ async def get_preferences(
     preference_service = PreferenceService()
 
     try:
-        preferences = await preference_service.get_preferences(db=db, user_id=user_id)
+        preferences = await preference_service.get_preferences(db=db, user_id=current_user)
 
         if not preferences:
             # Create default preferences if they don't exist
             preferences = await preference_service.create_default_preferences(
-                db=db, user_id=user_id
+                db=db, user_id=current_user
             )
 
         return UserNotificationPreferenceResponse.model_validate(preferences)
@@ -42,7 +43,7 @@ async def get_preferences(
 @router.patch("", response_model=UserNotificationPreferenceResponse)
 async def update_preferences(
     request: UserNotificationPreferenceUpdate,
-    user_id: UUID,  # TODO: Extract from JWT token
+    current_user: UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> UserNotificationPreferenceResponse:
     """
@@ -53,7 +54,7 @@ async def update_preferences(
     try:
         preferences = await preference_service.update_preferences(
             db=db,
-            user_id=user_id,
+            user_id=current_user,
             preference_update=request,
         )
 

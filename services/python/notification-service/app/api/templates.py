@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db_session
+from app.auth import require_admin
 from app.models import NotificationTemplate
 from app.schemas import (
     NotificationTemplateCreate,
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/v1/admin/notification-templates", tags=["admin-templ
 async def create_template(
     request: NotificationTemplateCreate,
     db: AsyncSession = Depends(get_db_session),
-    # TODO: Add admin role check
+    admin_user: UUID = Depends(require_admin),
 ) -> NotificationTemplateResponse:
     """
     Create a new notification template.
@@ -70,7 +71,7 @@ async def create_template(
 async def list_templates(
     is_active: bool = Query(None, description="Filter by active status"),
     db: AsyncSession = Depends(get_db_session),
-    # TODO: Add admin role check
+    admin_user: UUID = Depends(require_admin),
 ) -> List[NotificationTemplateResponse]:
     """
     List all notification templates.
@@ -97,7 +98,7 @@ async def list_templates(
 async def get_template(
     template_id: UUID,
     db: AsyncSession = Depends(get_db_session),
-    # TODO: Add admin role check
+    admin_user: UUID = Depends(require_admin),
 ) -> NotificationTemplateResponse:
     """
     Get a specific template by ID.
@@ -130,7 +131,7 @@ async def update_template(
     template_id: UUID,
     request: NotificationTemplateUpdate,
     db: AsyncSession = Depends(get_db_session),
-    # TODO: Add admin role check
+    admin_user: UUID = Depends(require_admin),
 ) -> NotificationTemplateResponse:
     """
     Update a notification template.
@@ -171,7 +172,7 @@ async def update_template(
 async def delete_template(
     template_id: UUID,
     db: AsyncSession = Depends(get_db_session),
-    # TODO: Add admin role check
+    admin_user: UUID = Depends(require_admin),
 ) -> None:
     """
     Delete (deactivate) a notification template.

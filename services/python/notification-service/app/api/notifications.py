@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db_session
+from app.auth import get_current_user
 from app.schemas import (
     SendNotificationRequest,
     NotificationResponse,
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/v1/notifications", tags=["notifications"])
 async def send_notification(
     request: SendNotificationRequest,
     db: AsyncSession = Depends(get_db_session),
-    # TODO: Add JWT auth dependency
+    current_user: UUID = Depends(get_current_user),
 ) -> NotificationResponse:
     """
     Send a notification to a user.
@@ -148,7 +149,7 @@ async def get_notification_history(
     limit: int = Query(50, ge=1, le=100, description="Number of records"),
     offset: int = Query(0, ge=0, description="Number of records to skip"),
     db: AsyncSession = Depends(get_db_session),
-    # TODO: Add JWT auth dependency
+    current_user: UUID = Depends(get_current_user),
 ) -> List[NotificationLogResponse]:
     """
     Get notification history for a user.
@@ -175,7 +176,7 @@ async def get_notification_history(
 async def get_notification(
     notification_id: UUID,
     db: AsyncSession = Depends(get_db_session),
-    # TODO: Add JWT auth dependency
+    current_user: UUID = Depends(get_current_user),
 ) -> NotificationLogResponse:
     """
     Get details of a specific notification.

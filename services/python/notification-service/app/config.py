@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     # JWT
     jwt_secret_key: str = Field(default="your-super-secret-jwt-key-change-in-production")
     jwt_algorithm: str = Field(default="HS256")
+    jwt_expiration_minutes: int = Field(default=60)
 
     # Firebase Cloud Messaging
     firebase_credentials_path: str = Field(default="./config/firebase-credentials.json")

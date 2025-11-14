@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from app.database import get_db_session
+from app.auth import get_current_user
 from app.models import FCMToken
 from app.schemas import DeviceTokenCreate, DeviceTokenResponse
 from app.services.notification_service import NotificationService
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/v1/notifications/tokens", tags=["tokens"])
 @router.post("", response_model=DeviceTokenResponse, status_code=status.HTTP_201_CREATED)
 async def register_device_token(
     request: DeviceTokenCreate,
-    user_id: UUID,  # TODO: Extract from JWT token
+    current_user: UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> DeviceTokenResponse:
     """
@@ -28,7 +29,7 @@ async def register_device_token(
     try:
         token = await notification_service.register_device_token(
             db=db,
-            user_id=user_id,
+            user_id=current_user,
             platform=request.platform,
             fcm_token=request.fcm_token,
         )
@@ -44,7 +45,7 @@ async def register_device_token(
 
 @router.get("", response_model=List[DeviceTokenResponse])
 async def get_user_tokens(
-    user_id: UUID,  # TODO: Extract from JWT token
+    current_user: UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> List[DeviceTokenResponse]:
     """
@@ -52,7 +53,7 @@ async def get_user_tokens(
     """
     try:
         result = await db.execute(
-            select(FCMToken).where(FCMToken.user_id == user_id)
+            select(FCMToken).where(FCMToken.user_id == current_user)
         )
         tokens = result.scalars().all()
 
@@ -68,7 +69,7 @@ async def get_user_tokens(
 @router.delete("/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_device_token(
     token_id: UUID,
-    user_id: UUID,  # TODO: Extract from JWT token
+    current_user: UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> None:
     """
@@ -79,7 +80,7 @@ async def delete_device_token(
             select(FCMToken).where(
                 and_(
                     FCMToken.id == token_id,
-                    FCMToken.user_id == user_id,
+                    FCMToken.user_id == current_user,
                 )
             )
         )
@@ -94,7 +95,7 @@ async def delete_device_token(
         token.is_active = False
         await db.commit()
 
-        logger.info(f"Deactivated device token {token_id} for user {user_id}")
+        logger.info(f"Deactivated device token {token_id} for user {current_user}")
     except HTTPException:
         raise
     except Exception as e:

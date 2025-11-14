@@ -9,25 +9,41 @@ A comprehensive microservice for managing notifications across multiple channels
   - SMS Notifications (Termii API for Nigeria)
   - Email Notifications (SendGrid)
 
+- **JWT Authentication** ✨ NEW
+  - Secure endpoint access with Bearer tokens
+  - Role-based access control (user/admin)
+  - Token expiration and validation
+  - HTTPBearer security scheme
+
 - **Template Management**
   - Jinja2-based template rendering
   - Dynamic content substitution
   - Database-stored templates
+  - Admin-only template CRUD operations
 
 - **User Preferences**
   - Per-user notification settings
   - Channel-specific enable/disable
   - Notification type filtering
+  - Quiet hours support
 
 - **Async Processing**
   - Celery-based task queue
   - Background notification delivery
   - Automatic retry logic
+  - Scheduled maintenance tasks
 
 - **Delivery Tracking**
   - Complete notification history
   - Status tracking (pending, sent, delivered, failed)
   - Error logging
+  - Retry count tracking
+
+- **Comprehensive Testing** ✨ NEW
+  - 128+ tests covering all features
+  - >90% code coverage
+  - Unit, integration, and E2E tests
+  - Mock external services
 
 ## Technology Stack
 
@@ -106,6 +122,9 @@ celery -A celery_app beat --loglevel=info
 | `DATABASE_URL` | PostgreSQL connection URL | `postgresql+asyncpg://...` |
 | `REDIS_URL` | Redis connection URL | `redis://localhost:6379/3` |
 | `CELERY_BROKER_URL` | Celery broker URL | `redis://localhost:6379/4` |
+| `JWT_SECRET_KEY` | JWT signing secret key | `your-secret-key-change-in-production` |
+| `JWT_ALGORITHM` | JWT algorithm | `HS256` |
+| `JWT_EXPIRATION_MINUTES` | Token expiration time | `60` |
 | `FCM_CREDENTIALS_PATH` | Firebase credentials file | `./config/firebase-credentials.json` |
 | `TERMII_API_KEY` | Termii API key | - |
 | `TERMII_SENDER_ID` | Termii sender ID | `OpenRide` |
@@ -114,34 +133,65 @@ celery -A celery_app beat --loglevel=info
 
 See `.env.example` for complete configuration options.
 
+## Authentication
+
+All API endpoints (except health checks) require JWT authentication.
+
+### Using Authentication
+
+```bash
+# Include Bearer token in Authorization header
+curl -H "Authorization: Bearer <your-jwt-token>" \
+  http://localhost:8095/v1/notifications/history
+```
+
+### Token Structure
+
+```json
+{
+  "sub": "user-uuid",
+  "iat": 1234567890,
+  "exp": 1234571490,
+  "roles": ["user"]
+}
+```
+
+### Admin Endpoints
+
+Admin template management endpoints require the `admin` role in the JWT token:
+- `POST /v1/admin/notification-templates`
+- `GET /v1/admin/notification-templates`
+- `PUT /v1/admin/notification-templates/{id}`
+- `DELETE /v1/admin/notification-templates/{id}`
+
 ## API Endpoints
 
 ### Notifications
 
-- `POST /v1/notifications/send` - Send notification (sync)
+- `POST /v1/notifications/send` - Send notification (sync) 🔒 Auth required
 - `POST /v1/notifications/send-async` - Send notification (async via Celery)
 - `POST /v1/notifications/broadcast` - Broadcast to multiple users
-- `GET /v1/notifications/history` - Get user notification history
-- `GET /v1/notifications/{id}` - Get notification details
+- `GET /v1/notifications/history` - Get user notification history 🔒 Auth required
+- `GET /v1/notifications/{id}` - Get notification details 🔒 Auth required
 
 ### Device Tokens
 
-- `POST /v1/notifications/tokens` - Register FCM token
-- `GET /v1/notifications/tokens` - Get user's tokens
-- `DELETE /v1/notifications/tokens/{id}` - Delete token
+- `POST /v1/notifications/tokens` - Register FCM token 🔒 Auth required
+- `GET /v1/notifications/tokens` - Get user's tokens 🔒 Auth required
+- `DELETE /v1/notifications/tokens/{id}` - Delete token 🔒 Auth required
 
 ### Preferences
 
-- `GET /v1/notifications/preferences` - Get user preferences
-- `PATCH /v1/notifications/preferences` - Update preferences
+- `GET /v1/notifications/preferences` - Get user preferences 🔒 Auth required
+- `PATCH /v1/notifications/preferences` - Update preferences 🔒 Auth required
 
 ### Admin Templates
 
-- `POST /v1/admin/notification-templates` - Create template
-- `GET /v1/admin/notification-templates` - List templates
-- `GET /v1/admin/notification-templates/{id}` - Get template
-- `PUT /v1/admin/notification-templates/{id}` - Update template
-- `DELETE /v1/admin/notification-templates/{id}` - Delete template
+- `POST /v1/admin/notification-templates` - Create template 🔒 Admin only
+- `GET /v1/admin/notification-templates` - List templates 🔒 Admin only
+- `GET /v1/admin/notification-templates/{id}` - Get template 🔒 Admin only
+- `PUT /v1/admin/notification-templates/{id}` - Update template 🔒 Admin only
+- `DELETE /v1/admin/notification-templates/{id}` - Delete template 🔒 Admin only
 
 ### Health
 
@@ -267,16 +317,53 @@ services:
 
 ## Testing
 
+Comprehensive test suite with >90% code coverage.
+
 ```bash
-# Run tests
+# Run all tests
 pytest
 
-# With coverage
-pytest --cov=app --cov-report=html
+# Run with coverage report
+pytest --cov=app --cov-report=html --cov-report=term
 
 # Run specific test file
 pytest tests/test_notification_service.py -v
+pytest tests/test_auth.py -v
+
+# Run specific test class
+pytest tests/test_api_notifications.py::TestNotificationAPI -v
+
+# Run tests in parallel (faster)
+pytest -n auto
+
+# View HTML coverage report
+open htmlcov/index.html  # macOS/Linux
+start htmlcov/index.html  # Windows
 ```
+
+### Test Structure
+
+```
+tests/
+├── conftest.py                      # Fixtures & configuration
+├── test_auth.py                     # JWT authentication (9 tests)
+├── test_fcm_service.py             # FCM push (10 tests)
+├── test_termii_service.py          # Termii SMS (12 tests)
+├── test_email_service.py           # SendGrid email (13 tests)
+├── test_template_service.py        # Templates (12 tests)
+├── test_preference_service.py      # Preferences (11 tests)
+├── test_notification_service.py    # Orchestration (11 tests)
+├── test_api_notifications.py       # Notification API (7 tests)
+├── test_api_tokens.py              # Token API (7 tests)
+├── test_api_preferences.py         # Preferences API (8 tests)
+├── test_api_templates.py           # Admin API (10 tests)
+├── test_celery_tasks.py            # Async tasks (10 tests)
+└── test_integration.py             # E2E tests (8 tests)
+
+Total: 128+ tests
+```
+
+See [tests/README.md](tests/README.md) for detailed test documentation.
 
 ## Architecture
 
