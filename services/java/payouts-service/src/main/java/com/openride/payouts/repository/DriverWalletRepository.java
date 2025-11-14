@@ -60,4 +60,14 @@ public interface DriverWalletRepository extends JpaRepository<DriverWallet, UUID
      */
     @Query("SELECT COALESCE(SUM(w.pendingPayout), 0) FROM DriverWallet w")
     BigDecimal getTotalPendingPayouts();
+
+    /**
+     * Find wallet by ID with pessimistic write lock.
+     * 
+     * @param id Wallet ID
+     * @return Optional wallet
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT w FROM DriverWallet w WHERE w.id = :id")
+    Optional<DriverWallet> findByIdWithLock(@Param("id") UUID id);
 }

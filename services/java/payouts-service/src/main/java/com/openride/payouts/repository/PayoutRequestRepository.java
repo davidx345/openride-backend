@@ -28,7 +28,7 @@ public interface PayoutRequestRepository extends JpaRepository<PayoutRequest, UU
      * @param pageable Pagination parameters
      * @return Page of payout requests
      */
-    Page<PayoutRequest> findByDriverIdOrderByRequestedAtDesc(UUID driverId, Pageable pageable);
+    Page<PayoutRequest> findByDriverId(UUID driverId, Pageable pageable);
 
     /**
      * Find payout requests by status.
@@ -37,7 +37,7 @@ public interface PayoutRequestRepository extends JpaRepository<PayoutRequest, UU
      * @param pageable Pagination parameters
      * @return Page of payout requests
      */
-    Page<PayoutRequest> findByStatusOrderByRequestedAtDesc(PayoutStatus status, Pageable pageable);
+    Page<PayoutRequest> findByStatus(PayoutStatus status, Pageable pageable);
 
     /**
      * Find payout requests by driver and status.
@@ -47,16 +47,16 @@ public interface PayoutRequestRepository extends JpaRepository<PayoutRequest, UU
      * @param pageable Pagination parameters
      * @return Page of payout requests
      */
-    Page<PayoutRequest> findByDriverIdAndStatusOrderByRequestedAtDesc(
+    Page<PayoutRequest> findByDriverIdAndStatus(
             UUID driverId, PayoutStatus status, Pageable pageable);
 
     /**
-     * Find pending payout for driver.
+     * Find most recent payout for driver.
      * 
      * @param driverId Driver ID
      * @return Optional payout request
      */
-    Optional<PayoutRequest> findByDriverIdAndStatus(UUID driverId, PayoutStatus status);
+    Optional<PayoutRequest> findTopByDriverIdOrderByCreatedAtDesc(UUID driverId);
 
     /**
      * Check if driver has pending payout.

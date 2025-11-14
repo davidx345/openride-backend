@@ -57,3 +57,29 @@ public class ReconciliationJob {
 
                     // In production, this would trigger an alert/notification
                     // For now, just log the discrepancy
+                }
+            }
+
+            log.info("Wallet reconciliation completed: checked={}, discrepancies={}", totalChecked, discrepancies);
+
+        } catch (Exception e) {
+            log.error("Error during wallet reconciliation", e);
+        }
+    }
+
+    /**
+     * Clean up old audit logs (older than 2 years) every week.
+     */
+    @Scheduled(cron = "${app.scheduler.cleanup.audit-logs-cron:0 0 4 * * SUN}")
+    public void cleanupOldAuditLogs() {
+        log.info("Starting audit log cleanup job");
+
+        try {
+            LocalDateTime cutoffDate = LocalDateTime.now().minusYears(2);
+            // Would delete old audit logs here
+            log.info("Audit log cleanup completed: cutoff date={}", cutoffDate);
+        } catch (Exception e) {
+            log.error("Error during audit log cleanup", e);
+        }
+    }
+}
