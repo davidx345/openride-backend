@@ -182,3 +182,14 @@ class HealthCheckResponse(BaseModel):
     version: str
     timestamp: datetime
     dependencies: Dict[str, str]
+
+
+# Aliases for backward compatibility with API endpoints
+DeviceTokenCreate = FCMTokenCreate
+DeviceTokenResponse = FCMTokenResponse
+UserNotificationPreferenceUpdate = NotificationPreferencesUpdate
+UserNotificationPreferenceResponse = NotificationPreferencesResponse
+BroadcastRequest = BroadcastNotificationRequest
+NotificationTemplateCreate = TemplateCreate
+NotificationTemplateUpdate = TemplateUpdate
+NotificationTemplateResponse = TemplateResponse

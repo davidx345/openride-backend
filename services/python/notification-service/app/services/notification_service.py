@@ -12,7 +12,7 @@ from app.models import (
     NotificationStatus,
     FCMToken,
 )
-from app.schemas import SendNotificationRequest, NotificationLogResponse
+from app.schemas import NotificationLogResponse
 from app.services.fcm_service import FCMService
 from app.services.termii_service import TermiiSMSService
 from app.services.email_service import SendGridEmailService
@@ -36,7 +36,10 @@ class NotificationService:
     async def send_notification(
         self,
         db: AsyncSession,
-        request: SendNotificationRequest,
+        user_id: UUID,
+        notification_type: NotificationType,
+        channel: NotificationChannel,
+        template_data: Dict[str, Any],
         user_phone: Optional[str] = None,
         user_email: Optional[str] = None,
         user_name: Optional[str] = None,
@@ -46,7 +49,10 @@ class NotificationService:
 
         Args:
             db: Database session
-            request: Notification request
+            user_id: User ID
+            notification_type: Type of notification
+            channel: Notification channel
+            template_data: Template variables
             user_phone: User's phone number (for SMS)
             user_email: User's email (for email)
             user_name: User's name (for personalization)
@@ -56,25 +62,25 @@ class NotificationService:
         """
         # Check if channel is enabled for user
         is_enabled = await self.preference_service.is_channel_enabled(
-            db, request.user_id, request.channel
+            db, user_id, channel
         )
 
         if not is_enabled:
             logger.info(
-                f"Channel {request.channel.value} disabled for user {request.user_id}"
+                f"Channel {channel.value} disabled for user {user_id}"
             )
             return {
                 "success": False,
-                "message": f"Channel {request.channel.value} is disabled for this user",
+                "message": f"Channel {channel.value} is disabled for this user",
             }
 
         # Render notification content from template
         try:
             content = await self.template_service.render_notification(
                 db,
-                request.notification_type,
-                request.channel,
-                request.data or {},
+                notification_type,
+                channel,
+                template_data or {},
             )
         except ValueError as e:
             logger.error(f"Template not found: {e}")
@@ -85,23 +91,23 @@ class NotificationService:
 
         # Create notification log
         notification_log = NotificationLog(
-            user_id=request.user_id,
-            notification_type=request.notification_type,
-            channel=request.channel,
+            user_id=user_id,
+            notification_type=notification_type,
+            channel=channel,
             recipient_address="",  # Will be updated based on channel
             subject=content.get("subject"),
             body=content.get("body"),
             status=NotificationStatus.PENDING,
-            data=request.data,
+            data=template_data,
         )
         db.add(notification_log)
         await db.flush()
 
         # Send through appropriate channel
         try:
-            if request.channel == NotificationChannel.PUSH:
-                result = await self._send_push(db, request.user_id, content)
-            elif request.channel == NotificationChannel.SMS:
+            if channel == NotificationChannel.PUSH:
+                result = await self._send_push(db, user_id, content)
+            elif channel == NotificationChannel.SMS:
                 if not user_phone:
                     raise ValueError("User phone number required for SMS")
                 result = await self._send_sms(user_phone, content)
@@ -112,7 +118,7 @@ class NotificationService:
                 result = await self._send_email(user_email, content, user_name)
                 notification_log.recipient_address = user_email
             else:
-                raise ValueError(f"Unsupported channel: {request.channel}")
+                raise ValueError(f"Unsupported channel: {channel}")
 
             # Update log status
             if result.get("success"):

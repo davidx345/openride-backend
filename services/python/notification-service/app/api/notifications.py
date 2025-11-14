@@ -33,21 +33,34 @@ async def send_notification(
     notification_service = NotificationService()
 
     try:
-        # Note: In production, you'd fetch user contact info from user service
-        # For now, we expect it to be passed in the request data
-        user_phone = request.data.get("user_phone") if request.data else None
-        user_email = request.data.get("user_email") if request.data else None
-        user_name = request.data.get("user_name") if request.data else None
+        # Extract user contact info from request
+        user_phone = request.phone_number
+        user_email = request.email
+        user_name = request.template_data.get("user_name") if request.template_data else None
 
-        result = await notification_service.send_notification(
-            db=db,
-            request=request,
-            user_phone=user_phone,
-            user_email=user_email,
-            user_name=user_name,
+        # Send through each channel
+        results = []
+        for channel in request.channels:
+            result = await notification_service.send_notification(
+                db=db,
+                user_id=request.user_id,
+                notification_type=request.notification_type,
+                channel=channel,
+                template_data=request.template_data,
+                user_phone=user_phone,
+                user_email=user_email,
+                user_name=user_name,
+            )
+            results.append(result)
+
+        # Return first successful or last failed
+        final_result = next((r for r in results if r.get("success")), results[-1])
+        
+        return NotificationResponse(
+            notification_id=UUID(final_result.get("notification_id", "00000000-0000-0000-0000-000000000000")),
+            status=NotificationStatus.SENT if final_result.get("success") else NotificationStatus.FAILED,
+            message=final_result.get("message", ""),
         )
-
-        return NotificationResponse(**result)
     except Exception as e:
         logger.error(f"Failed to send notification: {e}")
         raise HTTPException(
