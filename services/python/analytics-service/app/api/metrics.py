@@ -79,11 +79,10 @@ async def get_driver_metrics(
     start_date: datetime = Query(..., description="Start date (ISO 8601)"),
     end_date: datetime = Query(..., description="End date (ISO 8601)"),
     limit: int = Query(100, ge=1, le=1000, description="Number of drivers to return"),
-    ch: Client = Depends(get_clickhouse)
+    service: MetricsAggregationService = Depends(get_aggregation_service)
 ):
     """Get driver earnings and performance metrics."""
-    # TODO: Implement driver metrics
-    return {"message": "Driver metrics endpoint - to be implemented"}
+    return await service.get_driver_metrics(start_date, end_date, limit)
 
 
 @router.get("/metrics/routes")
@@ -91,8 +90,7 @@ async def get_route_metrics(
     start_date: datetime = Query(..., description="Start date (ISO 8601)"),
     end_date: datetime = Query(..., description="End date (ISO 8601)"),
     limit: int = Query(50, ge=1, le=500, description="Number of routes to return"),
-    ch: Client = Depends(get_clickhouse)
+    service: MetricsAggregationService = Depends(get_aggregation_service)
 ):
     """Get popular routes and performance metrics."""
-    # TODO: Implement route metrics
-    return {"message": "Route metrics endpoint - to be implemented"}
+    return await service.get_route_metrics(start_date, end_date, limit)

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health, metrics
+from app.api import analytics, exports, health, metrics, reports
 from app.core import clickhouse_manager, configure_logging, redis_manager, settings
 from app.core.logging import get_logger
 
@@ -61,6 +61,9 @@ app.add_middleware(
 # Include routers
 app.include_router(health.router, tags=["Health"])
 app.include_router(metrics.router, prefix="/v1", tags=["Metrics"])
+app.include_router(analytics.router, prefix="/v1", tags=["Analytics"])
+app.include_router(exports.router, prefix="/v1", tags=["Exports"])
+app.include_router(reports.router, prefix="/v1", tags=["Reports"])
 
 
 @app.get("/")

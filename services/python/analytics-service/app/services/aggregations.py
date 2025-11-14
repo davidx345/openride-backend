@@ -302,3 +302,147 @@ class MetricsAggregationService:
         except Exception as e:
             logger.error("get_realtime_metrics_failed", error=str(e))
             raise
+
+    async def get_driver_metrics(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        limit: int = 100
+    ) -> List[DriverEarningsResponse]:
+        """Get top driver earnings and performance metrics."""
+        try:
+            query = """
+            SELECT
+                driver_id,
+                sum(total_trips) as trips,
+                sum(total_earnings) as earnings,
+                avg(avg_earnings_per_trip) as avg_per_trip,
+                sum(total_distance_km) as distance,
+                max(rating_avg) as rating
+            FROM openride_analytics.agg_driver_earnings
+            WHERE date >= {start_date:Date} AND date <= {end_date:Date}
+            GROUP BY driver_id
+            ORDER BY earnings DESC
+            LIMIT {limit:UInt32}
+            """
+            
+            result = self.ch.query(query, parameters={
+                "start_date": start_date.date(),
+                "end_date": end_date.date(),
+                "limit": limit
+            })
+            
+            drivers = []
+            for row in result.result_rows:
+                driver_id, trips, earnings, avg_per_trip, distance, rating = row
+                drivers.append(DriverEarningsResponse(
+                    driver_id=driver_id,
+                    total_trips=trips,
+                    total_earnings=Decimal(str(earnings)) if earnings else Decimal("0.00"),
+                    avg_earnings_per_trip=Decimal(str(avg_per_trip)) if avg_per_trip else Decimal("0.00"),
+                    total_distance_km=round(distance, 2) if distance else 0.0,
+                    avg_rating=round(rating, 2) if rating else 0.0,
+                ))
+            
+            return drivers
+            
+        except Exception as e:
+            logger.error("get_driver_metrics_failed", error=str(e))
+            raise
+
+    async def get_route_metrics(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        limit: int = 50
+    ) -> List[PopularRouteResponse]:
+        """Get popular routes by bookings and revenue."""
+        try:
+            query = """
+            SELECT
+                route_id,
+                any(route_name) as route_name,
+                any(origin_city) as origin_city,
+                any(destination_city) as destination_city,
+                any(driver_id) as driver_id,
+                sum(total_bookings) as bookings,
+                sum(total_revenue) as revenue,
+                avg(avg_occupancy) as occupancy,
+                any(seats_total) as seats
+            FROM openride_analytics.agg_popular_routes
+            WHERE date >= {start_date:Date} AND date <= {end_date:Date}
+            GROUP BY route_id
+            ORDER BY bookings DESC
+            LIMIT {limit:UInt32}
+            """
+            
+            result = self.ch.query(query, parameters={
+                "start_date": start_date.date(),
+                "end_date": end_date.date(),
+                "limit": limit
+            })
+            
+            routes = []
+            for row in result.result_rows:
+                route_id, name, origin, dest, driver_id, bookings, revenue, occupancy, seats = row
+                routes.append(PopularRouteResponse(
+                    route_id=route_id,
+                    route_name=name,
+                    origin_city=origin,
+                    destination_city=dest,
+                    driver_id=driver_id,
+                    total_bookings=bookings,
+                    total_revenue=Decimal(str(revenue)) if revenue else Decimal("0.00"),
+                    avg_occupancy_rate=round(occupancy * 100, 2) if occupancy else 0.0,
+                    seats_total=seats,
+                ))
+            
+            return routes
+            
+        except Exception as e:
+            logger.error("get_route_metrics_failed", error=str(e))
+            raise
+
+    async def get_geographic_metrics(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        metric_type: str = "bookings"
+    ) -> List[GeographicMetricsResponse]:
+        """Get geographic distribution metrics."""
+        try:
+            query = """
+            SELECT
+                state,
+                city,
+                sum(metric_value) as total
+            FROM openride_analytics.agg_geographic_metrics
+            WHERE date >= {start_date:Date} 
+            AND date <= {end_date:Date}
+            AND metric_type = {metric_type:String}
+            GROUP BY state, city
+            ORDER BY total DESC
+            LIMIT 100
+            """
+            
+            result = self.ch.query(query, parameters={
+                "start_date": start_date.date(),
+                "end_date": end_date.date(),
+                "metric_type": metric_type
+            })
+            
+            locations = []
+            for row in result.result_rows:
+                state, city, total = row
+                locations.append(GeographicMetricsResponse(
+                    state=state,
+                    city=city,
+                    metric_type=metric_type,
+                    metric_value=float(total) if total else 0.0,
+                ))
+            
+            return locations
+            
+        except Exception as e:
+            logger.error("get_geographic_metrics_failed", error=str(e))
+            raise
