@@ -151,41 +151,94 @@ services:
       retries: 5
       start_period: 40s
 
-  # Kafka & Zookeeper (optional for Phase 0, uncomment when needed)
-  # zookeeper:
-  #   image: confluentinc/cp-zookeeper:7.5.0
-  #   container_name: openride-zookeeper
-  #   environment:
-  #     ZOOKEEPER_CLIENT_PORT: 2181
-  #     ZOOKEEPER_TICK_TIME: 2000
-  #   ports:
-  #     - "2181:2181"
-  #   volumes:
-  #     - zookeeper_data:/var/lib/zookeeper/data
-  #     - zookeeper_logs:/var/lib/zookeeper/log
-  #   networks:
-  #     - openride-network
+  # Kafka & Zookeeper (needed for Phase 9 Payouts Service)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: openride-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - openride-network
+    healthcheck:
+      test: ["CMD", "echo", "ruok", "|", "nc", "localhost", "2181", "|", "grep", "imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # kafka:
-  #   image: confluentinc/cp-kafka:7.5.0
-  #   container_name: openride-kafka
-  #   depends_on:
-  #     - zookeeper
-  #   ports:
-  #     - "9092:9092"
-  #     - "9093:9093"
-  #   environment:
-  #     KAFKA_BROKER_ID: 1
-  #     KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-  #     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:9093
-  #     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
-  #     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-  #     KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-  #     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-  #   volumes:
-  #     - kafka_data:/var/lib/kafka/data
-  #   networks:
-  #     - openride-network
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: openride-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - openride-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # Payouts Service (Phase 9 - Financial Management)
+  payouts-service:
+    build:
+      context: ./services/java/payouts-service
+      dockerfile: Dockerfile
+    container_name: openride-payouts-service
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/openride
+      DATABASE_USERNAME: openride_user
+      DATABASE_PASSWORD: openride_password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: openride_redis_password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+      KAFKA_GROUP_ID: payouts-service-group
+      PLATFORM_COMMISSION_RATE: 0.15
+      MINIMUM_PAYOUT_AMOUNT: 5000.00
+      AUTO_SETTLEMENT_ENABLED: true
+      SETTLEMENT_SCHEDULE_CRON: "0 0 2 * * MON"
+      PAYSTACK_API_KEY: ${PAYSTACK_API_KEY}
+      PAYMENT_PROVIDER: PAYSTACK
+      SERVER_PORT: 8087
+    ports:
+      - "8087:8087"
+      - "9087:9087"
+    networks:
+      - openride-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8087/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   # ClickHouse for analytics time-series data
   clickhouse:
@@ -252,6 +305,6 @@ volumes:
   pgadmin_data:
   ticketing_keys:
   clickhouse_data:
-  # zookeeper_data:
-  # zookeeper_logs:
-  # kafka_data:
+  zookeeper_data:
+  zookeeper_logs:
+  kafka_data:

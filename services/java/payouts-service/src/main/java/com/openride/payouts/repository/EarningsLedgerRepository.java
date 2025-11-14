@@ -27,7 +27,36 @@ public interface EarningsLedgerRepository extends JpaRepository<EarningsLedger, 
      * @param pageable Pagination parameters
      * @return Page of ledger entries
      */
-    Page<EarningsLedger> findByDriverIdOrderByCreatedAtDesc(UUID driverId, Pageable pageable);
+    Page<EarningsLedger> findByDriverId(UUID driverId, Pageable pageable);
+
+    /**
+     * Find most recent ledger entry for driver by transaction type.
+     * 
+     * @param driverId Driver ID
+     * @param transactionType Transaction type
+     * @return Optional ledger entry
+     */
+    java.util.Optional<EarningsLedger> findTopByDriverIdAndTransactionTypeOrderByCreatedAtDesc(
+            UUID driverId, TransactionType transactionType);
+
+    /**
+     * Count ledger entries by driver and transaction type.
+     * 
+     * @param driverId Driver ID
+     * @param transactionType Transaction type
+     * @return Count
+     */
+    Long countByDriverIdAndTransactionType(UUID driverId, TransactionType transactionType);
+
+    /**
+     * Calculate wallet balance from ledger (CREDIT - DEBIT).
+     * 
+     * @param driverId Driver ID
+     * @return Current balance
+     */
+    @Query("SELECT COALESCE(SUM(CASE WHEN l.entryType = 'CREDIT' THEN l.amount ELSE -l.amount END), 0) " +
+           "FROM EarningsLedger l WHERE l.driverId = :driverId")
+    java.util.Optional<BigDecimal> calculateBalanceByDriverId(@Param("driverId") UUID driverId);
 
     /**
      * Find ledger entries by driver ID and transaction type.

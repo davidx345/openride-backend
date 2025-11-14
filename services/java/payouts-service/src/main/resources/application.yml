@@ -169,17 +169,30 @@ kafka:
     payout-completed: payout.completed
     payout-failed: payout.failed
     earning-processed: earning.processed
+  consumer:
+    group-id: ${KAFKA_GROUP_ID:payouts-service-group}
+    auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:earliest}
+    max-poll-records: ${KAFKA_MAX_POLL_RECORDS:10}
 
 # Scheduled Jobs
-jobs:
-  settlement:
-    enabled: ${SETTLEMENT_JOB_ENABLED:true}
-    lock-ttl: 300000
-  reconciliation:
-    enabled: ${RECONCILIATION_JOB_ENABLED:true}
-    cron: ${RECONCILIATION_CRON:0 0 3 * * *}
-    lock-ttl: 600000
-  cleanup:
-    enabled: ${CLEANUP_JOB_ENABLED:true}
-    cron: ${CLEANUP_CRON:0 0 4 * * *}
-    expired-request-days: 30
+app:
+  scheduler:
+    settlement:
+      enabled: ${SETTLEMENT_JOB_ENABLED:true}
+      cron: ${SETTLEMENT_SCHEDULE_CRON:0 0 2 * * MON}
+      lock-key: settlement-job-lock
+      lock-wait-time: 0
+      lock-lease-time: 300
+      check-stuck-cron: ${STUCK_SETTLEMENT_CHECK_CRON:0 0 * * * *}
+    reconciliation:
+      enabled: ${RECONCILIATION_JOB_ENABLED:true}
+      cron: ${RECONCILIATION_CRON:0 0 3 * * *}
+    cleanup:
+      enabled: ${CLEANUP_JOB_ENABLED:true}
+      audit-logs-cron: ${CLEANUP_AUDIT_LOGS_CRON:0 0 4 * * SUN}
+      expired-request-days: 30
+  payment:
+    default-provider: ${PAYMENT_PROVIDER:PAYSTACK}
+    paystack:
+      api-key: ${PAYSTACK_API_KEY:}
+      base-url: ${PAYSTACK_BASE_URL:https://api.paystack.co}
