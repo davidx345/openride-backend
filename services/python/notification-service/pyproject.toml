@@ -1,0 +1,80 @@
+[tool.poetry]
+name = "openride-notification-service"
+version = "1.0.0"
+description = "OpenRide Notification Service - Multi-channel notification delivery (FCM, SMS, Email)"
+authors = ["OpenRide Team"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.104.0"
+uvicorn = {extras = ["standard"], version = "^0.24.0"}
+pydantic = {extras = ["email"], version = "^2.5.0"}
+pydantic-settings = "^2.1.0"
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.23"}
+asyncpg = "^0.29.0"
+alembic = "^1.13.0"
+redis = {extras = ["hiredis"], version = "^5.0.1"}
+celery = {extras = ["redis"], version = "^5.3.4"}
+firebase-admin = "^6.3.0"
+sendgrid = "^6.11.0"
+httpx = "^0.25.2"
+jinja2 = "^3.1.2"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+python-multipart = "^0.0.6"
+openride-commons = {path = "../../../shared/python-commons", develop = true}
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+pytest-asyncio = "^0.21.1"
+pytest-cov = "^4.1.0"
+pytest-mock = "^3.12.0"
+httpx = "^0.25.2"
+black = "^23.12.0"
+flake8 = "^6.1.0"
+mypy = "^1.7.1"
+isort = "^5.13.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers --cov=app --cov-report=term-missing --cov-report=html"
+testpaths = ["tests"]
+asyncio_mode = "auto"
