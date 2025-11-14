@@ -66,6 +66,29 @@ public class DriverProfile {
     @Builder.Default
     private BigDecimal totalEarnings = BigDecimal.ZERO;
 
+    // Phase 1.4: Enhanced driver metrics
+    @Column(name = "rating_avg", precision = 3, scale = 2)
+    private BigDecimal ratingAvg;
+
+    @Column(name = "rating_count", nullable = false)
+    @Builder.Default
+    private Integer ratingCount = 0;
+
+    @Column(name = "cancellation_rate", precision = 5, scale = 2)
+    private BigDecimal cancellationRate;
+
+    @Column(name = "completed_trips", nullable = false)
+    @Builder.Default
+    private Integer completedTrips = 0;
+
+    @Column(name = "cancelled_trips", nullable = false)
+    @Builder.Default
+    private Integer cancelledTrips = 0;
+
+    @Column(name = "is_verified", nullable = false)
+    @Builder.Default
+    private Boolean isVerified = false;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -79,6 +102,61 @@ public class DriverProfile {
      */
     public void incrementTripCount() {
         this.totalTrips++;
+    }
+
+    /**
+     * Increments the completed trip count.
+     */
+    public void incrementCompletedTrips() {
+        this.completedTrips++;
+        updateCancellationRate();
+    }
+
+    /**
+     * Increments the cancelled trip count.
+     */
+    public void incrementCancelledTrips() {
+        this.cancelledTrips++;
+        updateCancellationRate();
+    }
+
+    /**
+     * Updates driver rating with new rating value.
+     *
+     * @param newRating the new rating value (0-5)
+     */
+    public void updateRating(BigDecimal newRating) {
+        if (newRating == null || newRating.compareTo(BigDecimal.ZERO) < 0 
+                || newRating.compareTo(BigDecimal.valueOf(5)) > 0) {
+            throw new IllegalArgumentException("Rating must be between 0 and 5");
+        }
+
+        if (this.ratingAvg == null || this.ratingCount == 0) {
+            this.ratingAvg = newRating;
+            this.ratingCount = 1;
+        } else {
+            // Calculate new average: (old_avg * old_count + new_rating) / (old_count + 1)
+            BigDecimal totalRating = this.ratingAvg
+                    .multiply(BigDecimal.valueOf(this.ratingCount))
+                    .add(newRating);
+            this.ratingCount++;
+            this.ratingAvg = totalRating
+                    .divide(BigDecimal.valueOf(this.ratingCount), 2, BigDecimal.ROUND_HALF_UP);
+        }
+    }
+
+    /**
+     * Recalculates cancellation rate based on completed and cancelled trips.
+     */
+    private void updateCancellationRate() {
+        int totalTripsCompleted = this.completedTrips + this.cancelledTrips;
+        if (totalTripsCompleted > 0) {
+            this.cancellationRate = BigDecimal.valueOf(this.cancelledTrips)
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(BigDecimal.valueOf(totalTripsCompleted), 2, BigDecimal.ROUND_HALF_UP);
+        } else {
+            this.cancellationRate = BigDecimal.ZERO;
+        }
     }
 
     /**

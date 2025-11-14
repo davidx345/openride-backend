@@ -37,7 +37,9 @@ import java.util.UUID;
     @Index(name = "idx_bookings_route", columnList = "route_id"),
     @Index(name = "idx_bookings_route_date", columnList = "route_id, travel_date"),
     @Index(name = "idx_bookings_status", columnList = "status"),
-    @Index(name = "idx_bookings_reference", columnList = "booking_reference")
+    @Index(name = "idx_bookings_reference", columnList = "booking_reference"),
+    @Index(name = "idx_bookings_search_id", columnList = "search_id"),
+    @Index(name = "idx_bookings_search_rank", columnList = "search_id, candidate_rank")
 })
 public class Booking extends BaseEntity {
 
@@ -117,6 +119,16 @@ public class Booking extends BaseEntity {
     @Column(name = "refund_status", length = 20)
     @Builder.Default
     private RefundStatus refundStatus = RefundStatus.NONE;
+
+    // Phase 1.6: Search event tracking for conversion analytics
+    @Column(name = "search_id")
+    private UUID searchId;
+
+    @Column(name = "candidate_rank")
+    private Integer candidateRank;
+
+    @Column(name = "candidate_count")
+    private Integer candidateCount;
 
     // Metadata
     @Column(name = "idempotency_key", unique = true, length = 100)

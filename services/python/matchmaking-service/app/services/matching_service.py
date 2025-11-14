@@ -2,15 +2,18 @@
 
 import logging
 import time
+from datetime import time as time_type
 from decimal import Decimal
-from typing import Sequence
+from typing import Optional, Sequence
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.exceptions import MatchingError, PerformanceError
+from app.core.redis import redis_client
 from app.models.route import Route
+from app.repositories.hub_repository import HubRepository
 from app.repositories.route_repository import RouteRepository
 from app.schemas.matching import (
     MatchRequest,
@@ -18,6 +21,7 @@ from app.schemas.matching import (
     MatchResult,
     ScoreBreakdown,
 )
+from app.services.route_cache_service import RouteCacheService
 from app.services.scoring_service import RouteScorer
 from app.services.user_service import UserService
 
@@ -37,9 +41,9 @@ class MatchingService:
         """
         self.db = db
         self.route_repo = RouteRepository(db)
+        self.hub_repo = HubRepository(db)
         self.scorer = RouteScorer()
         self.user_service = UserService()
-
     async def match_routes(self, request: MatchRequest) -> MatchResponse:
         """
         Find and rank matching routes for rider request.
@@ -54,35 +58,92 @@ class MatchingService:
             PerformanceError: If execution exceeds target time
         """
         start_time = time.time()
+        cache_hit = False
 
         try:
-            # Step 1: Get candidate routes (geospatial filtering)
-            radius_meters = request.radius_km * 1000
-            candidate_routes = await self.route_repo.find_nearby_routes(
-                origin_lat=request.origin_lat,
-                origin_lon=request.origin_lon,
-                dest_lat=request.dest_lat,
-                dest_lon=request.dest_lon,
-                radius_meters=radius_meters,
-                max_results=settings.max_candidate_routes,
-            )
+            # Step 0: Try to find nearest hubs for caching
+            origin_hub_id: Optional[UUID] = None
+            dest_hub_id: Optional[UUID] = None
+
+            try:
+                origin_hub = await self.hub_repo.find_nearest_hub(
+                    lat=request.origin_lat,
+                    lon=request.origin_lon,
+                    max_distance_km=2.0,  # Within 2km
+                )
+                if origin_hub:
+                    origin_hub_id = origin_hub.id
+
+                if request.dest_lat and request.dest_lon:
+                    dest_hub = await self.hub_repo.find_nearest_hub(
+                        lat=request.dest_lat,
+                        lon=request.dest_lon,
+                        max_distance_km=2.0,
+                    )
+                    if dest_hub:
+                        dest_hub_id = dest_hub.id
+            except Exception as e:
+                logger.debug(f"Hub lookup failed: {e}")
+
+            # Step 1: Check cache for hub-based routes
+            candidate_routes: Sequence[Route] = []
+            if origin_hub_id and dest_hub_id:
+                cached_routes = await self.route_cache.get_cached_routes(
+                    origin_hub_id=origin_hub_id,
+                    destination_hub_id=dest_hub_id,
+                    departure_time=request.desired_time,
+                    active_only=True,
+                )
+
+                if cached_routes:
+                    # Convert cached dicts back to Route objects
+                    candidate_routes = await self._routes_from_cache(cached_routes)
+                    cache_hit = True
+                    logger.info(f"Cache HIT: {len(candidate_routes)} routes from cache")
+
+            # Step 2: On cache miss, query database
+            if not cache_hit:
+                radius_meters = request.radius_km * 1000
+                candidate_routes = await self.route_repo.find_nearby_routes(
+                    origin_lat=request.origin_lat,
+                    origin_lon=request.origin_lon,
+                    dest_lat=request.dest_lat,
+                    dest_lon=request.dest_lon,
+                    radius_meters=radius_meters,
+                    max_results=settings.max_candidate_routes,
+                )
+
+                # Cache for future requests
+                if origin_hub_id and dest_hub_id and candidate_routes:
+                    await self.route_cache.cache_routes(
+                        routes=list(candidate_routes),
+                        origin_hub_id=origin_hub_id,
+                        destination_hub_id=dest_hub_id,
+                        departure_time=request.desired_time,
+                        active_only=True,
+                    )
+                    logger.info(f"Cached {len(candidate_routes)} routes for hub pair")
 
             total_candidates = len(candidate_routes)
-            logger.info(f"Found {total_candidates} candidate routes")
-
-            # Step 2: Filter by time window
-            time_filtered_routes = await self.route_repo.filter_by_time_window(
-                routes=candidate_routes,
-                desired_time=request.desired_time,
-                window_minutes=settings.time_window_minutes,
-            )
-
+            logger.info(f"Found {total_candidates} candidate routes (cache_hit={cache_hit})")
+            total_candidates = len(candidate_routes)
+            # Check performance
+            execution_time = int((time.time() - start_time) * 1000)
             logger.info(
-                f"After time filtering: {len(time_filtered_routes)}/{total_candidates} routes"
+                f"Matching completed in {execution_time}ms (cache_hit={cache_hit})"
             )
 
-            # Step 3: Filter by minimum seats
-            seat_filtered_routes = [
+            if execution_time > settings.performance_target_ms:
+                logger.warning(
+                    f"Performance target exceeded: {execution_time}ms > {settings.performance_target_ms}ms"
+                )
+
+            return MatchResponse(
+                matches=top_matches,
+                total_candidates=total_candidates,
+                matched_candidates=matched_candidates,
+                execution_time_ms=execution_time,
+            )eat_filtered_routes = [
                 r for r in time_filtered_routes if r.seats_available >= request.min_seats
             ]
 
@@ -280,8 +341,25 @@ class MatchingService:
                         )
 
             # Re-sort by updated scores
-            match_results.sort(key=lambda x: x.final_score, reverse=True)
-
         except Exception as e:
+            logger.warning(f"Failed to enrich with driver data: {e}")
+            # Continue without driver data
+
+    async def _routes_from_cache(self, cached_dicts: list[dict]) -> list[Route]:
+        """
+        Convert cached route dictionaries to Route objects.
+
+        Args:
+            cached_dicts: List of route dictionaries from cache
+
+        Returns:
+            list[Route]: List of Route objects
+        """
+        route_ids = [UUID(d["id"]) for d in cached_dicts]
+
+        # Fetch full Route objects from database
+        routes = await self.route_repo.get_routes_by_ids(route_ids)
+
+        return routes
             logger.warning(f"Failed to enrich with driver data: {e}")
             # Continue without driver data

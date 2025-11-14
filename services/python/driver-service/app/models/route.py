@@ -2,13 +2,13 @@
 Route and RouteStop models.
 """
 from datetime import datetime, time
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy import (
     Column, String, Integer, Boolean, DateTime, Time, 
     Enum, ForeignKey, CheckConstraint, Index, Numeric
 )
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy.dialects.postgresql import UUID as PGUUID, ARRAY
 from sqlalchemy.orm import relationship
 import enum
 
@@ -27,9 +27,9 @@ class Route(Base):
     
     __tablename__ = "routes"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    driver_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    vehicle_id = Column(UUID(as_uuid=True), ForeignKey("vehicles.id"), nullable=False)
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    driver_id = Column(PGUUID(as_uuid=True), nullable=False, index=True)
+    vehicle_id = Column(PGUUID(as_uuid=True), ForeignKey("vehicles.id"), nullable=False)
     name = Column(String(255), nullable=False)
     departure_time = Column(Time, nullable=False)
     active_days = Column(ARRAY(Integer), nullable=False)  # [0=Mon, 1=Tue, ..., 6=Sun]
@@ -47,19 +47,29 @@ class Route(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
+    # Hub association (Phase 1.3)
+    origin_hub_id = Column(PGUUID(as_uuid=True), ForeignKey('hubs.id', ondelete='SET NULL'), nullable=True, index=True)
+    destination_hub_id = Column(PGUUID(as_uuid=True), ForeignKey('hubs.id', ondelete='SET NULL'), nullable=True, index=True)
+    currency = Column(String(3), default='NGN', nullable=False)
+    estimated_duration_minutes = Column(Integer, nullable=True)
+    route_template_id = Column(PGUUID(as_uuid=True), nullable=True, index=True)
+    
     # Relationships
     vehicle = relationship("Vehicle", foreign_keys=[vehicle_id])
     route_stops = relationship("RouteStop", back_populates="route", cascade="all, delete-orphan")
+    origin_hub = relationship("Hub", foreign_keys=[origin_hub_id], backref="origin_routes")
+    destination_hub = relationship("Hub", foreign_keys=[destination_hub_id], backref="destination_routes")
     
     __table_args__ = (
         CheckConstraint('seats_available >= 0 AND seats_available <= seats_total', name='ck_seats_valid'),
         CheckConstraint('base_price >= 0', name='ck_price_positive'),
         Index('idx_routes_driver_status', 'driver_id', 'status'),
         Index('idx_routes_status_departure', 'status', 'departure_time'),
+        Index('idx_routes_hub_pair', 'origin_hub_id', 'destination_hub_id'),
     )
     
     def __repr__(self):
-        return f"<Route {self.name} - {self.status.value}>"
+        return f"<Route {self.name} ({self.origin_hub_id} -> {self.destination_hub_id}) - {self.status.value}>"
 
 
 class RouteStop(Base):
@@ -67,9 +77,9 @@ class RouteStop(Base):
     
     __tablename__ = "route_stops"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    route_id = Column(UUID(as_uuid=True), ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
-    stop_id = Column(UUID(as_uuid=True), ForeignKey("stops.id"), nullable=False)
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    route_id = Column(PGUUID(as_uuid=True), ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    stop_id = Column(PGUUID(as_uuid=True), ForeignKey("stops.id"), nullable=False)
     stop_order = Column(Integer, nullable=False)
     planned_arrival_offset_minutes = Column(Integer, nullable=False)
     price_from_origin = Column(Numeric(10, 2), nullable=False)

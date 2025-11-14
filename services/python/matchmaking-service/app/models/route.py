@@ -10,6 +10,8 @@ from geoalchemy2 import Geometry
 from sqlalchemy import (
     ARRAY,
     CheckConstraint,
+    ForeignKey,
+    Integer,
     Numeric,
     String,
     Time,
@@ -76,6 +78,17 @@ class Route(Base, TimestampMixin):
     # Additional
     notes: Mapped[str | None] = mapped_column(String(1000))
 
+    # Hub association (Phase 1.3)
+    origin_hub_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("hubs.id", ondelete="SET NULL"), index=True
+    )
+    destination_hub_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("hubs.id", ondelete="SET NULL"), index=True
+    )
+    currency: Mapped[str] = mapped_column(String(3), default="NGN", nullable=False)
+    estimated_duration_minutes: Mapped[int | None] = mapped_column(Integer)
+    route_template_id: Mapped[UUID | None] = mapped_column(index=True)
+
     # Relationships
     route_stops: Mapped[list["RouteStop"]] = relationship(
         "RouteStop",
@@ -96,4 +109,4 @@ class Route(Base, TimestampMixin):
 
     def __repr__(self) -> str:
         """String representation."""
-        return f"<Route(id={self.id}, name={self.name}, status={self.status})>"
+        return f"<Route(id={self.id}, name={self.name}, hubs={self.origin_hub_id}->{self.destination_hub_id})>"

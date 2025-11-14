@@ -1,0 +1,57 @@
+OpenRide Matching – Data Used for Processing (ML & Routing)
+ 1. Core Operational Data (Persistent)
+ 1.1 Hubs- hub_id (unique)- name- lat, lng (GPS coordinates)- area_id / zone (optional grouping, e.g. Island/Mainland)- is_active (whether hub is usable)
+ Used for:- Mapping rider’s location to nearest hub.- Filtering routes by origin hub during candidate retrieval.- Aggregated stats (demand/supply per hub).
+ 1.2 Stops- stop_id (unique)- name- lat, lng- hub_id (if this stop is also a hub)- area_id (region label, e.g. VI, Lekki)- is_active
+ Used for:- Defining ordered_stop_ids in each route.- Pickup and destination mapping from the map.- Route overlap and direction checks.
+ 1.3 Route Instances (Driver Shifts)- route_instance_id (unique per actual run)- route_template_id (optional link to base pattern)- driver_id- origin_hub_id- ordered_stop_ids (array of stop ids in travel order)- departure_time (timestamp)- seats_total- seats_available- price_per_seat- currency- status (ACTIVE, CANCELLED, COMPLETED, EXPIRED)- optional metadata (estimated_duration, vehicle info)
+ Used for:- Candidate retrieval (origin_hub_id, time window, seats, status).- Route matching (pickup and destination indices in ordered_stop_ids).- Scoring (departure_time, price_per_seat).
+ 1.4 Driver Profiles- driver_id- name- rating_avg (0–5)- rating_count
+- cancellation_rate- completed_trips- optional vehicle details (model, year, plate)- verified flag
+ Used for:- Online scoring (RatingScore, explanation tags like “ 4.8 driver”).- ML features (reliability signals).
+ 1.5 Riders- rider_id- name- completed_trips- cancelled_trips- no_show_count
+ Used for:- Future personalization features.- Risk/fraud analysis and ML features.
+ 1.6 Bookings- booking_id- search_id (which search produced this booking)- rider_id- driver_id- route_instance_id- seats_booked- price_per_seat- total_price- created_at- status (PENDING, CONFIRMED, CANCELLED, COMPLETED, REFUNDED, etc.)
+ Used for:- Seat inventory updates (seats_available on route instances).- Analytics (conversion, popular routes).- ML labels (which candidate was chosen for a given search_id).
+ 2. Runtime Algorithm Data (In-Memory, Python)
+ 2.1 Hub / Stop Spatial Index- Arrays of hub and stop coordinates (lat, lng) stored in memory.- KDTree or BallTree over those coordinates for fast nearest-neighbor queries.
+ Used for:- Mapping rider GPS to nearest hub or stop within a radius (e.g. 150m).
+ 2.2 Route Cache
+ For each ACTIVE route_instance kept in memory:- route_instance_id- driver_id- origin_hub_id- departure_time
+- seats_available- price_per_seat- status- ordered_stop_ids (ordered list or array)- derived values like route_length (number of stops), dest_stop_id (last stop).
+ Used for:- Fast candidate retrieval (filtering by origin hub, time window, seats, status).- Route overlap and directionality checks.- Scoring and ranking.
+ 2.3 Driver Feature Cache
+ Per driver_id, cached stats:- rating_avg- rating_count- cancellation_rate- completed_trips
+ Used for:- RatingScore calculation and reliability-based features.- ML feature vectors at ranking time.
+ 2.4 Feature Vectors for ML Ranking (later phase)
+ Per candidate (for a given search):- Encoded origin_hub_id and destination_stop_id/area_id.- time_of_day (hour), day_of_week.- match_type (EXACT/PARTIAL, numeric encoding).- time_diff_minutes (|route_departure – desired_departure|).- price_per_seat and relative price rank within candidates.- route_length, position of destination within the route.- driver rating, rating_count, cancellation_rate, completed_trips.
+ Stored as:- A numpy matrix of shape (n_candidates, n_features) for input to the ranking model.
+ 3. Logged / Analytics Data (For Metrics and ML Training)
+ 3.1 Search Events
+ Per search_id:- timestamp- rider_id (if available)- origin_hub_id, pickup_stop_id, destination_stop_id- desired_departure_time- time_window_minutes- seats_requested
+ Per candidate returned in that search:- route_instance_id- driver_id- rank_position (1, 2, 3, …)- match_type (EXACT/PARTIAL)- scores (route_match, time, rating, price, total)
+- optional: feature_snapshot used for training.
+ Used for:- Measuring coverage (how many searches get ≥1 or ≥2 matches).- Observing score distributions and search behaviour.- Building training datasets for learning-to-rank models.
+ 3.2 Booking Events
+ Per booking event (especially successful bookings):- booking_id- search_id- rider_id- driver_id- route_instance_id- timestamp- status (CONFIRMED, CANCELLED, etc.)- seats_booked- price_paid
+ Used for:- Measuring conversion and success rate.- Computing Top-1 and Top-3 hit rates (did the rider pick rank 1 or within top 3).- Creating labels for ML (which candidate was chosen per search_id).
+ 3.3 Aggregated Stats / Derived Features
+ Precomputed periodically (e.g. daily) and stored back into feature tables:- Per driver: rating_avg, rating_count, cancellation_rate, completed_trips.- Per hub/time bucket: historical demand (search count), historical supply (active route
+ count),
+  demand/supply ratio.
+ Used for:- Faster feature lookup at inference time (no heavy aggregation on each request).- More informative ML features based on historical behaviour.
+ Summary
+ At a high level, the matching system uses three categories of data:
+ 1) Core operational entities (hubs, stops, route instances, drivers, riders, bookings)
+   – stored in the main database and mirrored into Python for fast lookups.
+ 2) Runtime algorithm data (spatial indices, route cache, driver stats, feature vectors)
+   – kept in memory by the Python matching service to power hub resolution, candidate
+ retrieval,
+     route overlap, rule-based scoring and ML reranking.
+ 3) Logged and analytics data (search events, booking events, aggregates)
+   – emitted on every search and booking, then used offline to monitor performance and
+ train
+     better ranking models.
+Together, these data sets define exactly what is stored and used for processing in the
+ OpenRide
+ matching and routing pipeline

@@ -205,6 +205,9 @@ public class BookingService {
             .platformFee(platformFee)
             .status(BookingStatus.PENDING)
             .idempotencyKey(request.getIdempotencyKey())
+            .searchId(request.getSearchId())
+            .candidateRank(request.getCandidateRank())
+            .candidateCount(request.getCandidateCount())
             .expiresAt(Instant.now().plusSeconds(config.getHold().getTtlMinutes() * 60L))
             .build();
 

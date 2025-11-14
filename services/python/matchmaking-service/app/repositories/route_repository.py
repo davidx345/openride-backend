@@ -1,7 +1,7 @@
 """Route repository with geospatial queries."""
 
 from datetime import time
-from typing import Sequence
+from typing import Optional, Sequence
 from uuid import UUID
 
 from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_MakePoint, ST_SetSRID
@@ -216,3 +216,53 @@ class RouteRepository:
         result = await self.db.execute(stmt)
         distances = {row.route_id: float(row.min_distance) for row in result}
         return distances
+
+    async def find_routes_by_hubs(
+        self,
+        origin_hub_id: Optional[UUID],
+        destination_hub_id: Optional[UUID],
+        active_only: bool = True,
+    ) -> Sequence[Route]:
+        """
+        Find routes by hub pair.
+
+        Args:
+            origin_hub_id: Origin hub UUID
+            destination_hub_id: Destination hub UUID
+            active_only: Filter active routes only
+
+        Returns:
+            Sequence[Route]: List of matching routes
+        """
+        conditions = []
+
+        if origin_hub_id:
+            conditions.append(Route.origin_hub_id == origin_hub_id)
+        if destination_hub_id:
+            conditions.append(Route.destination_hub_id == destination_hub_id)
+        if active_only:
+            conditions.append(Route.status == RouteStatus.ACTIVE)
+            conditions.append(Route.seats_available > 0)
+
+        stmt = select(Route).where(and_(*conditions))
+
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
+
+    async def get_routes_by_ids(self, route_ids: list[UUID]) -> list[Route]:
+        """
+        Get routes by IDs.
+
+        Args:
+            route_ids: List of route UUIDs
+
+        Returns:
+            list[Route]: List of Route objects
+        """
+        stmt = (
+            select(Route)
+            .where(Route.id.in_(route_ids))
+            .options(selectinload(Route.route_stops).selectinload(RouteStop.stop))
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())

@@ -38,4 +38,13 @@ public class CreateBookingRequest {
 
     @Size(max = 100, message = "Idempotency key must be at most 100 characters")
     private String idempotencyKey;
+
+    // Phase 1.6: Search event tracking
+    private UUID searchId;
+
+    @Min(value = 1, message = "Candidate rank must be positive")
+    private Integer candidateRank;
+
+    @Min(value = 1, message = "Candidate count must be positive")
+    private Integer candidateCount;
 }
