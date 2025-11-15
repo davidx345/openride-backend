@@ -24,9 +24,12 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str
+    replica_database_url: str | None = None  # Read replica for queries
     max_db_connections: int = 50
-    min_db_connections: int = 10
+    min_db_connections: int = 20  # Phase 5: Increased from 10
     db_pool_recycle: int = 3600
+    db_pool_timeout: int = 30
+    db_echo_pool: bool = False  # Enable for pool debugging
 
     # Redis
     redis_url: str
@@ -55,7 +58,10 @@ class Settings(BaseSettings):
     weight_price: float = 0.1
 
     # Performance
-    performance_target_ms: int = 200
+    performance_target_ms: int = 100  # Phase 5 target: <100ms
+    enable_query_logging: bool = False  # Log slow queries
+    slow_query_threshold_ms: int = 50  # Log queries > 50ms
+    enable_pool_monitoring: bool = False  # Monitor connection pool
 
     # Logging
     log_level: str = "INFO"

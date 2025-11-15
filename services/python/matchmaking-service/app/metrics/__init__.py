@@ -1,0 +1,43 @@
+"""Metrics __init__ to export Prometheus metrics."""
+
+from app.metrics.prometheus import (
+    cache_hits_total,
+    cache_misses_total,
+    cache_operation_duration_seconds,
+    db_pool_connections,
+    db_pool_size,
+    db_query_duration_seconds,
+    feature_extraction_duration_seconds,
+    hub_filtering_duration_seconds,
+    http_request_duration_seconds,
+    http_requests_total,
+    matching_candidates_total,
+    matching_duration_seconds,
+    matching_results_total,
+    ml_scoring_duration_seconds,
+    performance_target_violations_total,
+    service_info,
+    service_up,
+    stop_validation_duration_seconds,
+)
+
+__all__ = [
+    "http_requests_total",
+    "http_request_duration_seconds",
+    "matching_duration_seconds",
+    "matching_candidates_total",
+    "matching_results_total",
+    "cache_hits_total",
+    "cache_misses_total",
+    "cache_operation_duration_seconds",
+    "db_query_duration_seconds",
+    "db_pool_connections",
+    "db_pool_size",
+    "feature_extraction_duration_seconds",
+    "ml_scoring_duration_seconds",
+    "service_info",
+    "service_up",
+    "performance_target_violations_total",
+    "hub_filtering_duration_seconds",
+    "stop_validation_duration_seconds",
+]
