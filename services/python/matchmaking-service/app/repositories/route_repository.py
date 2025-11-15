@@ -1,5 +1,6 @@
 """Route repository with geospatial queries."""
 
+import logging
 from datetime import time
 from typing import Optional, Sequence
 from uuid import UUID
@@ -14,6 +15,7 @@ from app.models.route import Route, RouteStatus
 from app.models.route_stop import RouteStop
 from app.models.stop import Stop
 
+logger = logging.getLogger(__name__)
 
 class RouteRepository:
     """Repository for route database operations."""
@@ -266,3 +268,52 @@ class RouteRepository:
         )
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_driver_stats_batch(self, driver_ids: list[str]) -> list[dict]:
+        """
+        Get driver statistics from materialized view.
+
+        Args:
+            driver_ids: List of driver UUIDs as strings
+
+        Returns:
+            list[dict]: List of driver stats dicts
+        """
+        # Query from driver_stats_agg materialized view (created in Phase 2)
+        # If view doesn't exist, return empty results
+        try:
+            from sqlalchemy import text
+
+            query = text("""
+                SELECT 
+                    driver_id,
+                    rating_avg,
+                    rating_count,
+                    cancellation_rate,
+                    completed_trips,
+                    acceptance_rate,
+                    avg_response_time
+                FROM driver_stats_agg
+                WHERE driver_id = ANY(:driver_ids)
+            """)
+
+            result = await self.db.execute(query, {"driver_ids": driver_ids})
+            rows = result.fetchall()
+
+            stats = []
+            for row in rows:
+                stats.append({
+                    "driver_id": str(row[0]),
+                    "rating_avg": float(row[1]) if row[1] is not None else 0.0,
+                    "rating_count": int(row[2]) if row[2] is not None else 0,
+                    "cancellation_rate": float(row[3]) if row[3] is not None else 0.0,
+                    "completed_trips": int(row[4]) if row[4] is not None else 0,
+                    "acceptance_rate": float(row[5]) if row[5] is not None else 0.0,
+                    "avg_response_time": int(row[6]) if row[6] is not None else 0,
+                })
+
+            return stats
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch driver stats: {e}")
+            return []

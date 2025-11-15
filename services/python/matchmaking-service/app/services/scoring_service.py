@@ -3,6 +3,7 @@
 import logging
 from datetime import time
 from decimal import Decimal
+from typing import Optional
 
 import numpy as np
 
@@ -251,3 +252,97 @@ class RouteScorer:
             parts.append(f"~ Fair price: ₦{route_price:.2f}")
 
         return " | ".join(parts) if parts else "Match found"
+
+    def calculate_ml_score(
+        self,
+        features: np.ndarray,
+        feature_weights: dict[str, float],
+    ) -> float:
+        """
+        Calculate ML-based score using extracted features.
+
+        This uses feature importance weights for scoring before
+        actual ML model training.
+
+        Args:
+            features: Feature vector (24 features)
+            feature_weights: Feature name -> weight mapping
+
+        Returns:
+            float: ML score (0-1)
+        """
+        # Convert weights dict to array (assuming features are ordered)
+        weight_array = np.array(list(feature_weights.values()), dtype=np.float64)
+
+        # Weighted sum
+        raw_score = float(np.dot(features, weight_array))
+
+        # Add base score and clamp to 0-1
+        base_score = 0.5
+        final_score = base_score + raw_score
+
+        return max(0.0, min(1.0, final_score))
+
+    def calculate_hybrid_score(
+        self,
+        rule_based_score: float,
+        ml_score: float,
+        alpha: float = 0.6,
+    ) -> float:
+        """
+        Calculate hybrid score combining rule-based and ML scores.
+
+        Args:
+            rule_based_score: Traditional composite score (0-1)
+            ml_score: ML-based score (0-1)
+            alpha: Weight for rule-based score (default: 0.6)
+                   1-alpha is the weight for ML score
+
+        Returns:
+            float: Hybrid score (0-1)
+        """
+        if not (0.0 <= alpha <= 1.0):
+            logger.warning(f"Invalid alpha value: {alpha}, using 0.6")
+            alpha = 0.6
+
+        hybrid = alpha * rule_based_score + (1 - alpha) * ml_score
+        return float(hybrid)
+
+    def explain_hybrid_score(
+        self,
+        rule_based_score: float,
+        ml_score: float,
+        hybrid_score: float,
+        alpha: float,
+        route_explanation: str,
+    ) -> dict:
+        """
+        Generate explanation for hybrid scoring.
+
+        Args:
+            rule_based_score: Rule-based score
+            ml_score: ML score
+            hybrid_score: Final hybrid score
+            alpha: Weight used for rule-based score
+            route_explanation: Traditional route explanation
+
+        Returns:
+            dict: Detailed score breakdown
+        """
+        return {
+            "final_score": hybrid_score,
+            "components": {
+                "rule_based": {
+                    "score": rule_based_score,
+                    "weight": alpha,
+                    "contribution": rule_based_score * alpha,
+                    "explanation": route_explanation,
+                },
+                "ml_based": {
+                    "score": ml_score,
+                    "weight": 1 - alpha,
+                    "contribution": ml_score * (1 - alpha),
+                },
+            },
+            "scoring_mode": "hybrid",
+        }

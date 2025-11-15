@@ -10,7 +10,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.exceptions import MatchingError, PerformanceError
+from app.core.exceptions import MatchingError
 from app.core.redis import redis_client
 from app.models.route import Route
 from app.repositories.hub_repository import HubRepository
@@ -21,8 +21,11 @@ from app.schemas.matching import (
     MatchResult,
     ScoreBreakdown,
 )
+from app.services.feature_extraction_service import FeatureExtractionService
+from app.services.hub_compatibility_service import HubCompatibilityService
 from app.services.route_cache_service import RouteCacheService
 from app.services.scoring_service import RouteScorer
+from app.services.stop_sequence_validator import StopSequenceValidator
 from app.services.user_service import UserService
 
 settings = get_settings()
@@ -44,18 +47,28 @@ class MatchingService:
         self.hub_repo = HubRepository(db)
         self.scorer = RouteScorer()
         self.user_service = UserService()
-    async def match_routes(self, request: MatchRequest) -> MatchResponse:
+        self.route_cache = RouteCacheService(redis_client)
+        self.hub_compatibility = HubCompatibilityService(db)
+        self.stop_validator = StopSequenceValidator(db)
+        self.feature_extractor = FeatureExtractionService()
+
+    async def match_routes(
+        self,
+        request: MatchRequest,
+        scoring_mode: str = "rule-based",
+    ) -> MatchResponse:
         """
         Find and rank matching routes for rider request.
 
         Args:
             request: Match request with rider preferences
+            scoring_mode: Scoring mode - "rule-based", "ml-based", or "hybrid" (default: "rule-based")
 
         Returns:
             MatchResponse: Ranked list of matching routes
 
         Raises:
-            PerformanceError: If execution exceeds target time
+            MatchingError: If matching fails
         """
         start_time = time.time()
         cache_hit = False
@@ -126,32 +139,50 @@ class MatchingService:
 
             total_candidates = len(candidate_routes)
             logger.info(f"Found {total_candidates} candidate routes (cache_hit={cache_hit})")
-            total_candidates = len(candidate_routes)
-            # Check performance
-            execution_time = int((time.time() - start_time) * 1000)
+
+            # Step 3: Phase 3 - Hub compatibility filtering
+            if origin_hub_id and dest_hub_id:
+                hub_filtered_routes = await self.hub_compatibility.filter_compatible_routes(
+                    routes=list(candidate_routes),
+                    origin_hub_id=origin_hub_id,
+                    destination_hub_id=dest_hub_id,
+                )
+                logger.info(
+                    f"After hub compatibility: {len(hub_filtered_routes)}/{total_candidates} routes"
+                )
+                candidate_routes = hub_filtered_routes
+
+            # Step 4: Phase 3 - Stop sequence validation
+            sequence_validated_routes = await self.stop_validator.validate_routes(
+                routes=list(candidate_routes),
+                origin_lat=request.origin_lat,
+                origin_lon=request.origin_lon,
+                dest_lat=request.dest_lat,
+                dest_lon=request.dest_lon,
+            )
             logger.info(
-                f"Matching completed in {execution_time}ms (cache_hit={cache_hit})"
+                f"After stop sequence validation: {len(sequence_validated_routes)}/{len(candidate_routes)} routes"
             )
 
-            if execution_time > settings.performance_target_ms:
-                logger.warning(
-                    f"Performance target exceeded: {execution_time}ms > {settings.performance_target_ms}ms"
-                )
+            # Step 5: Filter by time window
+            time_filtered_routes = await self.route_repo.filter_by_time_window(
+                routes=sequence_validated_routes,
+                desired_time=request.desired_time,
+                window_minutes=settings.time_window_minutes,
+            )
+            logger.info(
+                f"After time filtering: {len(time_filtered_routes)}/{len(sequence_validated_routes)} routes"
+            )
 
-            return MatchResponse(
-                matches=top_matches,
-                total_candidates=total_candidates,
-                matched_candidates=matched_candidates,
-                execution_time_ms=execution_time,
-            )eat_filtered_routes = [
+            # Step 6: Filter by minimum seats
+            seat_filtered_routes = [
                 r for r in time_filtered_routes if r.seats_available >= request.min_seats
             ]
-
             logger.info(
                 f"After seat filtering: {len(seat_filtered_routes)}/{len(time_filtered_routes)} routes"
             )
 
-            # Step 4: Filter by max price if specified
+            # Step 7: Filter by max price if specified
             price_filtered_routes = seat_filtered_routes
             if request.max_price is not None:
                 price_filtered_routes = [
@@ -172,19 +203,22 @@ class MatchingService:
                     execution_time_ms=execution_time,
                 )
 
-            # Step 5: Score and rank routes
+            # Step 8: Score and rank routes
             match_results = await self._score_and_rank_routes(
                 routes=price_filtered_routes,
                 request=request,
+                scoring_mode=scoring_mode,
             )
 
-            # Step 6: Fetch driver ratings (parallel for top 20)
+            # Step 9: Fetch driver ratings (parallel for top 20)
             top_matches = match_results[:20]
             await self._enrich_with_driver_data(top_matches)
 
             # Check performance
             execution_time = int((time.time() - start_time) * 1000)
-            logger.info(f"Matching completed in {execution_time}ms")
+            logger.info(
+                f"Matching completed in {execution_time}ms (cache_hit={cache_hit})"
+            )
 
             if execution_time > settings.performance_target_ms:
                 logger.warning(
@@ -206,13 +240,15 @@ class MatchingService:
         self,
         routes: Sequence[Route],
         request: MatchRequest,
+        scoring_mode: str = "rule-based",
     ) -> list[MatchResult]:
         """
-        Score and rank routes using composite algorithm.
+        Score and rank routes using rule-based or ML-based scoring.
 
         Args:
             routes: Candidate routes
             request: Match request
+            scoring_mode: \"rule-based\", \"ml-based\", or \"hybrid\"
 
         Returns:
             list[MatchResult]: Sorted list of match results
@@ -220,8 +256,75 @@ class MatchingService:
         all_prices = [r.base_price for r in routes]
         results: list[MatchResult] = []
 
-        for route in routes:
-            # Calculate component scores
+        # Phase 4: Extract ML features if needed
+        ml_features = None
+        driver_stats_map = {}
+        match_types = {}
+        distances = {}
+
+        if scoring_mode in ["ml-based", "hybrid"]:
+            # Get driver stats from database (materialized view)
+            driver_ids = [str(r.driver_id) for r in routes]
+            driver_stats = await self.route_repo.get_driver_stats_batch(driver_ids)
+            driver_stats_map = {str(d["driver_id"]): d for d in driver_stats}
+
+            # Calculate match types and distances for each route
+            for route in routes:
+                # Determine match type (EXACT vs PARTIAL)
+                if route.origin_hub_id and route.destination_hub_id:
+                    match_types[str(route.id)] = "EXACT"
+                else:
+                    match_types[str(route.id)] = "PARTIAL"
+
+                # Calculate distances
+                from app.services.geospatial_utils import calculate_distance_haversine
+
+                origin_dist = 0.0
+                dest_dist = 0.0
+
+                if route.route_stops:
+                    # Find min distance to origin
+                    origin_dists = [
+                        calculate_distance_haversine(
+                            stop.stop.lat,
+                            stop.stop.lon,
+                            request.origin_lat,
+                            request.origin_lon,
+                        )
+                        for stop in route.route_stops
+                    ]
+                    origin_dist = min(origin_dists) if origin_dists else 0.0
+
+                    # Find min distance to destination
+                    if request.dest_lat and request.dest_lon:
+                        dest_dists = [
+                            calculate_distance_haversine(
+                                stop.stop.lat,
+                                stop.stop.lon,
+                                request.dest_lat,
+                                request.dest_lon,
+                            )
+                            for stop in route.route_stops
+                        ]
+                        dest_dist = min(dest_dists) if dest_dists else 0.0
+
+                distances[route.id] = {
+                    "origin_km": origin_dist / 1000.0,
+                    "dest_km": dest_dist / 1000.0,
+                }
+
+            # Extract features for all routes
+            ml_features = self.feature_extractor.extract_batch_features(
+                routes=routes,
+                request=request,
+                driver_stats_map=driver_stats_map,
+                match_types=match_types,
+                distances=distances,
+            )
+
+        # Score each route
+        for idx, route in enumerate(routes):
+            # Calculate rule-based component scores
             route_match_score, has_origin, has_dest, correct_dir = (
                 self.scorer.calculate_route_match_score(
                     route=route,
@@ -246,13 +349,36 @@ class MatchingService:
                 all_prices=all_prices,
             )
 
-            # Calculate composite score
-            final_score = self.scorer.calculate_composite_score(
+            # Calculate rule-based composite score
+            rule_based_score = self.scorer.calculate_composite_score(
                 route_match_score=route_match_score,
                 time_match_score=time_match_score,
                 rating_score=rating_score,
                 price_score=price_score,
             )
+
+            # Phase 4: Calculate final score based on mode
+            final_score = rule_based_score  # Default
+
+            if scoring_mode == "ml-based" and ml_features is not None:
+                # Pure ML scoring
+                feature_weights = self.feature_extractor.get_feature_importance_weights()
+                final_score = self.scorer.calculate_ml_score(
+                    features=ml_features[idx],
+                    feature_weights=feature_weights,
+                )
+            elif scoring_mode == "hybrid" and ml_features is not None:
+                # Hybrid scoring (60% rule-based, 40% ML)
+                feature_weights = self.feature_extractor.get_feature_importance_weights()
+                ml_score = self.scorer.calculate_ml_score(
+                    features=ml_features[idx],
+                    feature_weights=feature_weights,
+                )
+                final_score = self.scorer.calculate_hybrid_score(
+                    rule_based_score=rule_based_score,
+                    ml_score=ml_score,
+                    alpha=0.6,  # 60% rule-based, 40% ML
+                )
 
             # Generate explanation
             explanation = self.scorer.generate_explanation(
@@ -341,6 +467,8 @@ class MatchingService:
                         )
 
             # Re-sort by updated scores
+            match_results.sort(key=lambda x: x.final_score, reverse=True)
+
         except Exception as e:
             logger.warning(f"Failed to enrich with driver data: {e}")
             # Continue without driver data
@@ -361,5 +489,3 @@ class MatchingService:
         routes = await self.route_repo.get_routes_by_ids(route_ids)
 
         return routes
-            logger.warning(f"Failed to enrich with driver data: {e}")
-            # Continue without driver data
