@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy dependency files
-COPY pyproject.toml ./
+COPY services/python/analytics-service/pyproject.toml ./
 
 # Install Python dependencies
 RUN pip install --upgrade pip setuptools wheel && \
@@ -48,7 +48,7 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
-COPY --chown=analyticsuser:analyticsuser . .
+COPY --chown=analyticsuser:analyticsuser services/python/analytics-service/ .
 
 # Switch to non-root user
 USER analyticsuser

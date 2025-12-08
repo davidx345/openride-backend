@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --no-cache-dir poetry==1.7.1
 
 # Copy dependency files
-COPY pyproject.toml poetry.lock* ./
+COPY services/python/notification-service/pyproject.toml services/python/notification-service/poetry.lock* ./
 
 # Configure Poetry and install dependencies
 RUN poetry config virtualenvs.create false \
@@ -40,7 +40,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 RUN groupadd -r openride && useradd -r -g openride openride
 
 # Copy application code
-COPY --chown=openride:openride . .
+COPY --chown=openride:openride services/python/notification-service/ .
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/config && \

@@ -12,14 +12,14 @@ RUN apt-get update && apt-get install -y \
 RUN pip install poetry==1.7.1
 
 # Copy dependency files
-COPY pyproject.toml ./
+COPY services/python/search-service/pyproject.toml ./
 
 # Install dependencies
 RUN poetry config virtualenvs.create false \
     && poetry install --no-dev --no-interaction --no-ansi
 
 # Copy application code
-COPY app/ ./app/
+COPY services/python/search-service/app/ ./app/
 
 # Expose port
 EXPOSE 8085

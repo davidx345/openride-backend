@@ -12,16 +12,16 @@ RUN apt-get update && apt-get install -y \
 RUN pip install poetry==1.7.1
 
 # Copy dependency files
-COPY pyproject.toml ./
+COPY services/python/matchmaking-service/pyproject.toml ./
 
 # Install dependencies (no dev dependencies in production)
 RUN poetry config virtualenvs.create false \
     && poetry install --no-dev --no-interaction --no-ansi
 
 # Copy application code
-COPY app/ ./app/
-COPY alembic/ ./alembic/
-COPY alembic.ini ./
+COPY services/python/matchmaking-service/app/ ./app/
+COPY services/python/matchmaking-service/alembic/ ./alembic/
+COPY services/python/matchmaking-service/alembic.ini ./
 
 # Expose port
 EXPOSE 8084

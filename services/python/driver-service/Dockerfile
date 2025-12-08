@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir poetry==1.7.1
 WORKDIR /app
 
 # Copy dependency files
-COPY pyproject.toml poetry.lock* ./
+COPY services/python/driver-service/pyproject.toml services/python/driver-service/poetry.lock* ./
 
 # Install dependencies
 RUN poetry config virtualenvs.create false \
@@ -40,9 +40,9 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
-COPY app ./app
-COPY alembic ./alembic
-COPY alembic.ini .
+COPY services/python/driver-service/app ./app
+COPY services/python/driver-service/alembic ./alembic
+COPY services/python/driver-service/alembic.ini .
 
 # Set ownership
 RUN chown -R appuser:appuser /app
