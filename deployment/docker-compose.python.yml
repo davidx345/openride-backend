@@ -1,0 +1,209 @@
+version: '3.8'
+
+# Python Microservices Droplet
+# This runs all Python services on one Droplet with resource limits
+
+networks:
+  openride-python:
+    driver: bridge
+
+services:
+  analytics-service:
+    build:
+      context: ..
+      dockerfile: services/python/analytics-service/Dockerfile
+    image: ${REGISTRY:-ghcr.io/davidx345}/openride-analytics-service:${TAG:-latest}
+    container_name: analytics-service
+    ports:
+      - "8097:8097"
+    environment:
+      - APP_ENV=${ENVIRONMENT:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
+      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT:-9000}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DATABASE=${CLICKHOUSE_DATABASE}
+      - JWT_SECRET_KEY=${JWT_SECRET}
+    networks:
+      - openride-python
+    restart: unless-stopped
+    mem_limit: 384m
+    mem_reservation: 192m
+    cpus: 0.4
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8097/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  driver-service:
+    build:
+      context: ..
+      dockerfile: services/python/driver-service/Dockerfile
+    image: ${REGISTRY:-ghcr.io/davidx345}/openride-driver-service:${TAG:-latest}
+    container_name: driver-service
+    ports:
+      - "8090:8000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
+      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
+      - JWT_SECRET_KEY=${JWT_SECRET}
+    networks:
+      - openride-python
+    restart: unless-stopped
+    mem_limit: 384m
+    mem_reservation: 192m
+    cpus: 0.4
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  fleet-service:
+    build:
+      context: ..
+      dockerfile: services/python/fleet-service/Dockerfile
+    image: ${REGISTRY:-ghcr.io/davidx345}/openride-fleet-service:${TAG:-latest}
+    container_name: fleet-service
+    ports:
+      - "8096:8096"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
+      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
+      - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - openride-python
+    restart: unless-stopped
+    mem_limit: 384m
+    mem_reservation: 192m
+    cpus: 0.4
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8096/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  matchmaking-service:
+    build:
+      context: ..
+      dockerfile: services/python/matchmaking-service/Dockerfile
+    image: ${REGISTRY:-ghcr.io/davidx345}/openride-matchmaking-service:${TAG:-latest}
+    container_name: matchmaking-service
+    ports:
+      - "8091:8084"
+    environment:
+      - APP_ENV=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
+      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
+      - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - openride-python
+    restart: unless-stopped
+    mem_limit: 384m
+    mem_reservation: 192m
+    cpus: 0.4
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  notification-service:
+    build:
+      context: ..
+      dockerfile: services/python/notification-service/Dockerfile
+    image: ${REGISTRY:-ghcr.io/davidx345}/openride-notification-service:${TAG:-latest}
+    container_name: notification-service
+    ports:
+      - "8095:8095"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
+      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
+      - JWT_SECRET=${JWT_SECRET}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_FROM_PHONE=${TWILIO_PHONE_NUMBER}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL}
+      - FCM_PROJECT_ID=${FCM_PROJECT_ID}
+      - FCM_CREDENTIALS=${FCM_CREDENTIALS}
+    networks:
+      - openride-python
+    restart: unless-stopped
+    mem_limit: 384m
+    mem_reservation: 192m
+    cpus: 0.4
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8095/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  search-service:
+    build:
+      context: ..
+      dockerfile: services/python/search-service/Dockerfile
+    image: ${REGISTRY:-ghcr.io/davidx345}/openride-search-service:${TAG:-latest}
+    container_name: search-service
+    ports:
+      - "8092:8085"
+    environment:
+      - APP_ENV=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
+      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
+      - ELASTICSEARCH_URL=${ELASTICSEARCH_URL}
+      - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - openride-python
+    restart: unless-stopped
+    mem_limit: 384m
+    mem_reservation: 192m
+    cpus: 0.4
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
