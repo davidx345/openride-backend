@@ -13,7 +13,7 @@ pydantic = {extras = ["email"], version = "^2.5.0"}
 pydantic-settings = "^2.1.0"
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.23"}
 asyncpg = "^0.29.0"
-alembic = "^1.13.0"
+# Alembic removed
 redis = {extras = ["hiredis"], version = "^5.0.1"}
 celery = {extras = ["redis"], version = "^5.3.4"}
 firebase-admin = "^6.3.0"

@@ -20,11 +20,9 @@ RUN poetry config virtualenvs.create false \
 
 # Copy application code
 COPY services/python/matchmaking-service/app/ ./app/
-COPY services/python/matchmaking-service/alembic/ ./alembic/
-COPY services/python/matchmaking-service/alembic.ini ./
 
 # Expose port
 EXPOSE 8084
 
-# Run migrations and start server
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8084"]
+# Start server
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8084"]

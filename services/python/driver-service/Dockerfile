@@ -41,8 +41,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY services/python/driver-service/app ./app
-COPY services/python/driver-service/alembic ./alembic
-COPY services/python/driver-service/alembic.ini .
+    # Alembic removed
 
 # Set ownership
 RUN chown -R appuser:appuser /app
