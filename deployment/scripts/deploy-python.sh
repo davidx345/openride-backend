@@ -14,11 +14,19 @@ DEPLOYMENT_DIR="$PROJECT_ROOT/deployment"
 
 echo "🚀 Deploying Python Services..."
 
-# Check if .env exists
+# Check if .env exists in deployment directory
 if [ ! -f "$DEPLOYMENT_DIR/.env" ]; then
-    echo "❌ Error: .env file not found!"
-    echo "Copy .env.example to .env and fill in your configuration"
-    exit 1
+    echo "⚠️  Warning: .env file not found in deployment/"
+    echo "Checking for .env in project root..."
+    if [ -f "$PROJECT_ROOT/.env" ]; then
+        echo "✅ Found .env in project root, copying to deployment/"
+        cp "$PROJECT_ROOT/.env" "$DEPLOYMENT_DIR/.env"
+    else
+        echo "❌ Error: .env file not found!"
+        echo "Copy .env.example to $DEPLOYMENT_DIR/.env and fill in your configuration"
+        echo "Or create it in $PROJECT_ROOT/.env"
+        exit 1
+    fi
 fi
 
 # Load environment variables

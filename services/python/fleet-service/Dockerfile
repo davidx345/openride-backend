@@ -15,15 +15,12 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files
-COPY services/python/fleet-service/pyproject.toml ./
+# Copy application code first (includes pyproject.toml and app/)
+COPY services/python/fleet-service/ .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -e .
-
-# Copy application code
-COPY services/python/fleet-service/ .
+    pip install --no-cache-dir .
 
 # Create non-root user
 RUN useradd -m -u 1000 fleetuser && \
