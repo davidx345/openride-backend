@@ -76,13 +76,12 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
         </dependency>
-        
+
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
-        </dependency>
-
-        <!-- Blockchain - Web3j for Polygon -->
+            <version>10.4.1</version>
+        </dependency>        <!-- Blockchain - Web3j for Polygon -->
         <dependency>
             <groupId>org.web3j</groupId>
             <artifactId>core</artifactId>
