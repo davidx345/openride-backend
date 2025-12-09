@@ -1,3 +1,19 @@
+# Build stage
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
+
+WORKDIR /app
+
+# Copy pom and install dependencies
+COPY services/java/admin-service/pom.xml .
+RUN mvn dependency:go-offline -B
+
+# Copy source code
+COPY services/java/admin-service/src ./src
+
+# Build application
+RUN mvn clean package -DskipTests -B
+
+# Runtime stage
 FROM eclipse-temurin:17-jre-alpine
 
 # Set working directory
@@ -7,8 +23,8 @@ WORKDIR /app
 RUN addgroup -g 1001 -S openride && \
     adduser -u 1001 -S openride -G openride
 
-# Copy application JAR
-COPY target/admin-service-*.jar app.jar
+# Copy application JAR from builder stage
+COPY --from=builder /app/target/admin-service-*.jar app.jar
 
 # Change ownership
 RUN chown -R openride:openride /app

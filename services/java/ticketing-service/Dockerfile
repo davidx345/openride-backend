@@ -1,3 +1,19 @@
+# Build stage
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+
+WORKDIR /app
+
+# Copy pom and install dependencies
+COPY services/java/ticketing-service/pom.xml .
+RUN mvn dependency:go-offline -B
+
+# Copy source code
+COPY services/java/ticketing-service/src ./src
+
+# Build application
+RUN mvn clean package -DskipTests -B
+
+# Runtime stage
 FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
@@ -5,8 +21,8 @@ WORKDIR /app
 # Add non-root user
 RUN addgroup -S openride && adduser -S openride -G openride
 
-# Copy the built JAR
-COPY target/ticketing-service-*.jar app.jar
+# Copy the built JAR from builder stage
+COPY --from=builder /app/target/ticketing-service-*.jar app.jar
 
 # Create directory for cryptographic keys
 RUN mkdir -p /etc/openride/keys && \

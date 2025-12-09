@@ -3,11 +3,11 @@ FROM maven:3.9.5-eclipse-temurin-17-alpine AS builder
 WORKDIR /app
 
 # Copy pom.xml and download dependencies (cached layer)
-COPY pom.xml .
+COPY services/java/payouts-service/pom.xml .
 RUN mvn dependency:go-offline -B
 
 # Copy source code
-COPY src ./src
+COPY services/java/payouts-service/src ./src
 
 # Build application
 RUN mvn clean package -DskipTests -B

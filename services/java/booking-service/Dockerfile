@@ -6,14 +6,14 @@ FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
 WORKDIR /app
 
 # Copy dependency files first (better caching)
-COPY pom.xml .
+COPY services/java/booking-service/pom.xml .
 COPY shared/java-commons/pom.xml shared/java-commons/pom.xml
 
 # Download dependencies
 RUN mvn dependency:go-offline -B
 
 # Copy source code
-COPY src src/
+COPY services/java/booking-service/src src/
 COPY shared/java-commons/src shared/java-commons/src/
 
 # Build application

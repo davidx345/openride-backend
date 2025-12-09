@@ -4,11 +4,11 @@ FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 WORKDIR /app
 
 # Copy pom and install dependencies (cached layer)
-COPY pom.xml .
+COPY services/java/user-service/pom.xml .
 RUN mvn dependency:go-offline -B
 
 # Copy source code
-COPY src ./src
+COPY services/java/user-service/src ./src
 
 # Build application
 RUN mvn clean package -DskipTests
