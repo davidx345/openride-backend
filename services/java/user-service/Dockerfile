@@ -1,9 +1,16 @@
 # Build stage
 FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 
-WORKDIR /app
+WORKDIR /build
 
-# Copy pom and install dependencies (cached layer)
+# First, build and install java-commons
+COPY shared/java-commons/pom.xml ./java-commons/pom.xml
+COPY shared/java-commons/src ./java-commons/src
+WORKDIR /build/java-commons
+RUN mvn clean install -DskipTests
+
+# Now build the service
+WORKDIR /app
 COPY services/java/user-service/pom.xml .
 RUN mvn dependency:go-offline -B
 

@@ -3,18 +3,21 @@
 # Stage 1: Build
 FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
 
+WORKDIR /build
+
+# First, build and install java-commons
+COPY shared/java-commons/pom.xml ./java-commons/pom.xml
+COPY shared/java-commons/src ./java-commons/src
+WORKDIR /build/java-commons
+RUN mvn clean install -DskipTests
+
+# Now build the service
 WORKDIR /app
-
-# Copy dependency files first (better caching)
 COPY services/java/booking-service/pom.xml .
-COPY shared/java-commons/pom.xml shared/java-commons/pom.xml
-
-# Download dependencies
 RUN mvn dependency:go-offline -B
 
 # Copy source code
-COPY services/java/booking-service/src src/
-COPY shared/java-commons/src shared/java-commons/src/
+COPY services/java/booking-service/src ./src
 
 # Build application
 RUN mvn clean package -DskipTests -B
