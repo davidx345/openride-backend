@@ -107,7 +107,7 @@
         <dependency>
             <groupId>com.openride</groupId>
             <artifactId>java-commons</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
+            <version>1.0.0</version>
         </dependency>
 
         <!-- HTTP Client for inter-service communication -->

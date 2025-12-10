@@ -1,4 +1,4 @@
-qpackage com.openride.payments.exception;
+package com.openride.payments.exception;
 
 /**
  * Exception thrown when a duplicate payment request is detected.
