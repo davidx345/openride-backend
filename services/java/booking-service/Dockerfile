@@ -20,7 +20,7 @@ RUN mvn dependency:go-offline -B
 COPY services/java/booking-service/src ./src
 
 # Build application
-RUN mvn clean package -DskipTests -B
+RUN mvn clean package -Dmaven.test.skip=true -B
 
 # Stage 2: Runtime
 FROM eclipse-temurin:21-jre-alpine

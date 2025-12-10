@@ -12,7 +12,10 @@ RUN mvn dependency:go-offline -B
 
 # Copy source and build
 COPY services/java/payments-service/src ./src
-RUN mvn clean package -DskipTests -B
+# Build application
+RUN mvn clean package -Dmaven.test.skip=true -B
+
+# Runtime stage
 
 # Production image
 FROM eclipse-temurin:21-jre-alpine

@@ -18,7 +18,7 @@ RUN mvn dependency:go-offline -B
 COPY services/java/auth-service/src ./src
 
 # Build application
-RUN mvn clean package -DskipTests
+RUN mvn clean package -Dmaven.test.skip=true
 
 # Runtime stage
 FROM eclipse-temurin:17-jre-alpine
