@@ -196,4 +196,74 @@ public class JwtUtil {
             return false;
         }
     }
+
+    // ========== Static Utility Methods (for backward compatibility) ==========
+
+    /**
+     * Static method to validate a token with a secret key.
+     * For backward compatibility with services that use static calls.
+     *
+     * @param token  The JWT token
+     * @param secret The secret key
+     * @return true if valid, false otherwise
+     */
+    public static boolean validateToken(String token, String secret) {
+        try {
+            SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+            Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Static method to extract subject (user ID) from token.
+     * For backward compatibility with services that use static calls.
+     *
+     * @param token  The JWT token
+     * @param secret The secret key
+     * @return The subject (user ID)
+     */
+    public static String extractSubject(String token, String secret) {
+        try {
+            SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return claims.getSubject();
+        } catch (Exception e) {
+            logger.error("Error extracting subject from token", e);
+            return null;
+        }
+    }
+
+    /**
+     * Static method to extract a specific claim from token.
+     * For backward compatibility with services that use static calls.
+     *
+     * @param token     The JWT token
+     * @param claimName The name of the claim to extract
+     * @param secret    The secret key
+     * @return The claim value as String
+     */
+    public static String extractClaim(String token, String claimName, String secret) {
+        try {
+            SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return claims.get(claimName, String.class);
+        } catch (Exception e) {
+            logger.error("Error extracting claim {} from token", claimName, e);
+            return null;
+        }
+    }
 }
