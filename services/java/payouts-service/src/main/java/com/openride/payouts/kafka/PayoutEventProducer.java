@@ -1,7 +1,7 @@
 package com.openride.payouts.kafka;
 
 import com.openride.payouts.dto.PayoutEvent;
-import com.openride.payouts.model.PayoutRequest;
+import com.openride.payouts.model.entity.PayoutRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

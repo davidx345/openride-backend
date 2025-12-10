@@ -1,6 +1,6 @@
 package com.openride.payouts.service;
 
-import com.openride.payouts.model.PayoutAuditLog;
+import com.openride.payouts.model.entity.PayoutAuditLog;
 import com.openride.payouts.repository.PayoutAuditLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

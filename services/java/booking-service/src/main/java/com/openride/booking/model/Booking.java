@@ -146,6 +146,9 @@ public class Booking extends BaseEntity {
     @Column(name = "confirmed_at")
     private Instant confirmedAt;
 
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
     // Relationships
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

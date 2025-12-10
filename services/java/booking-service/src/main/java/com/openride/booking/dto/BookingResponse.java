@@ -32,14 +32,14 @@ public class BookingResponse {
         return BookingResponse.builder()
                 .id(booking.getId())
                 .bookingReference(booking.getBookingReference())
-                .riderId(booking.getRiderId())
-                .driverId(booking.getDriverId())
-                .routeId(booking.getRouteId())
+                .riderId(booking.getRiderId().toString())
+                .driverId(booking.getDriverId().toString())
+                .routeId(booking.getRouteId().toString())
                 .status(booking.getStatus())
                 .paymentStatus(booking.getPaymentStatus())
                 .totalPrice(booking.getTotalPrice())
-                .createdAt(booking.getCreatedAt())
-                .updatedAt(booking.getUpdatedAt())
+                .createdAt(LocalDateTime.ofInstant(booking.getCreatedAt(), java.time.ZoneId.of("UTC")))
+                .updatedAt(LocalDateTime.ofInstant(booking.getUpdatedAt(), java.time.ZoneId.of("UTC")))
                 .build();
     }
 }

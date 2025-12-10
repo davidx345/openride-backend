@@ -1,8 +1,8 @@
 package com.openride.ticketing.job;
 
 import com.openride.ticketing.blockchain.BlockchainClient;
-import com.openride.ticketing.model.BlockchainAnchor;
-import com.openride.ticketing.model.BlockchainAnchorStatus;
+import com.openride.ticketing.model.entity.BlockchainAnchor;
+import com.openride.ticketing.model.enums.BlockchainAnchorStatus;
 import com.openride.ticketing.repository.BlockchainAnchorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

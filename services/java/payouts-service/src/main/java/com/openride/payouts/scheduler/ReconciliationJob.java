@@ -1,7 +1,7 @@
 package com.openride.payouts.scheduler;
 
-import com.openride.payouts.model.DriverWallet;
-import com.openride.payouts.model.EarningsLedger;
+import com.openride.payouts.model.entity.DriverWallet;
+import com.openride.payouts.model.entity.EarningsLedger;
 import com.openride.payouts.repository.DriverWalletRepository;
 import com.openride.payouts.repository.EarningsLedgerRepository;
 import lombok.RequiredArgsConstructor;

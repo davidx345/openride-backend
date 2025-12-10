@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import java.time.ZoneOffset;
+
 /**
  * Service for admin booking operations.
  * Provides advanced search, filtering, and management capabilities.
@@ -177,8 +179,8 @@ public class AdminBookingService {
         log.info("Calculating booking statistics from {} to {}", dateFrom, dateTo);
 
         List<Booking> bookings = bookingRepository.findByCreatedAtBetween(
-            dateFrom.atStartOfDay(),
-            dateTo.plusDays(1).atStartOfDay()
+            dateFrom.atStartOfDay().toInstant(ZoneOffset.UTC),
+            dateTo.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC)
         );
 
         Map<String, Object> stats = new HashMap<>();

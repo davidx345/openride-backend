@@ -4,7 +4,7 @@ import com.openride.payouts.dto.BankAccountRequest;
 import com.openride.payouts.dto.BankAccountResponse;
 import com.openride.payouts.exception.BankAccountNotVerifiedException;
 import com.openride.payouts.exception.PayoutsException;
-import com.openride.payouts.model.BankAccount;
+import com.openride.payouts.model.entity.BankAccount;
 import com.openride.payouts.repository.BankAccountRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

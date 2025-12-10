@@ -1,10 +1,10 @@
 package com.openride.ticketing.blockchain;
 
 import com.openride.ticketing.config.BlockchainProperties;
-import com.openride.ticketing.model.BlockchainAnchor;
-import com.openride.ticketing.model.BlockchainAnchorStatus;
-import com.openride.ticketing.model.BlockchainType;
-import com.openride.ticketing.model.MerkleBatch;
+import com.openride.ticketing.model.entity.BlockchainAnchor;
+import com.openride.ticketing.model.enums.BlockchainAnchorStatus;
+import com.openride.ticketing.model.enums.BlockchainType;
+import com.openride.ticketing.model.entity.MerkleBatch;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;

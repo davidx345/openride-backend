@@ -1,7 +1,7 @@
 package com.openride.ticketing.blockchain;
 
-import com.openride.ticketing.model.BlockchainAnchor;
-import com.openride.ticketing.model.MerkleBatch;
+import com.openride.ticketing.model.entity.BlockchainAnchor;
+import com.openride.ticketing.model.entity.MerkleBatch;
 
 import java.util.concurrent.CompletableFuture;
 

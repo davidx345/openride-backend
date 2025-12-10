@@ -52,10 +52,10 @@ public class PerformanceConfig {
         
         // Performance
         config.setAutoCommit(false);
-        config.setCachePrepStmts(true);
-        config.setPrepStmtCacheSize(250);
-        config.setPrepStmtCacheSqlLimit(2048);
-        config.setUseServerPrepStmts(true);
+        config.addDataSourceProperty("cachePrepStmts", "true");
+        config.addDataSourceProperty("prepStmtCacheSize", "250");
+        config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+        config.addDataSourceProperty("useServerPrepStmts", "true");
         
         // Leak detection
         config.setLeakDetectionThreshold(60000);

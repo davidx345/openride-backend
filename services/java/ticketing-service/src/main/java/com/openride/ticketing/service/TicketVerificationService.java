@@ -1,10 +1,12 @@
 package com.openride.ticketing.service;
 
-import com.openride.ticketing.model.*;
+import com.openride.ticketing.model.entity.Ticket;
+import com.openride.ticketing.model.enums.VerificationMethod;
+import com.openride.ticketing.model.enums.VerificationResult;
 import com.openride.ticketing.repository.TicketRepository;
 import com.openride.ticketing.repository.TicketVerificationLogRepository;
-import com.openride.ticketing.util.HashUtil;
-import com.openride.ticketing.util.SignatureUtil;
+import com.openride.ticketing.crypto.HashUtil;
+import com.openride.ticketing.crypto.SignatureUtil;
 import com.openride.ticketing.crypto.MerkleTree;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
