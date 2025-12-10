@@ -5,7 +5,7 @@ import com.openride.auth.dto.*;
 import com.openride.auth.entity.OtpRequest;
 import com.openride.auth.repository.OtpRequestRepository;
 import com.openride.commons.exception.BusinessException;
-import com.openride.commons.util.JwtUtil;
+import com.openride.commons.security.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

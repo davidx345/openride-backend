@@ -1,6 +1,6 @@
 package com.openride.auth.service;
 
-import com.openride.auth.config.AuthProperties;
+import com.openride.auth.config.TwilioProperties;
 import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.rest.api.v2010.account.MessageCreator;
 import com.twilio.type.PhoneNumber;
@@ -24,10 +24,7 @@ import static org.mockito.Mockito.*;
 class SmsServiceTest {
 
     @Mock
-    private AuthProperties authProperties;
-
-    @Mock
-    private AuthProperties.TwilioConfig twilioConfig;
+    private TwilioProperties twilioProperties;
 
     @InjectMocks
     private SmsService smsService;
@@ -38,8 +35,7 @@ class SmsServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(authProperties.getTwilio()).thenReturn(twilioConfig);
-        when(twilioConfig.getFromPhoneNumber()).thenReturn(FROM_PHONE);
+        when(twilioProperties.getFromPhoneNumber()).thenReturn(FROM_PHONE);
     }
 
     @Test
