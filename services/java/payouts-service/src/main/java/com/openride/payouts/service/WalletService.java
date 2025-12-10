@@ -137,8 +137,7 @@ public class WalletService {
                 .pendingPayout(wallet.getPendingPayout())
                 .totalEarnings(wallet.getTotalEarnings())
                 .totalPaidOut(wallet.getTotalPaidOut())
-                .lifetimeEarnings(wallet.getLifetimeEarnings())
-                .lastEarningAt(wallet.getLastEarningAt())
+                .lastPayoutAt(wallet.getLastPayoutAt())
                 .createdAt(wallet.getCreatedAt())
                 .build();
     }
@@ -146,7 +145,6 @@ public class WalletService {
     private LedgerEntryResponse mapToLedgerEntryResponse(EarningsLedger entry) {
         return LedgerEntryResponse.builder()
                 .id(entry.getId())
-                .walletId(entry.getWalletId())
                 .driverId(entry.getDriverId())
                 .amount(entry.getAmount())
                 .balanceAfter(entry.getBalanceAfter())

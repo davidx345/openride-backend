@@ -12,4 +12,8 @@ public class WalletNotFoundException extends PayoutsException {
     public static WalletNotFoundException forDriver(java.util.UUID driverId) {
         return new WalletNotFoundException("Wallet not found for driver: " + driverId);
     }
+
+    public static WalletNotFoundException forWallet(java.util.UUID walletId) {
+        return new WalletNotFoundException("Wallet not found: " + walletId);
+    }
 }

@@ -97,7 +97,7 @@ public class BookingEventPublisher {
             .numberOfSeats(booking.getSeatsBooked())
             .seatNumbers(booking.getSeatNumbers().stream().map(String::valueOf).toList())
             .totalAmount(booking.getTotalPrice())
-            .paymentId(booking.getPaymentId())
+            .paymentId(booking.getPaymentId() != null ? booking.getPaymentId().toString() : null)
             .confirmedAt(booking.getConfirmedAt())
             .eventId(UUID.randomUUID().toString())
             .eventTimestamp(Instant.now())

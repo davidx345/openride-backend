@@ -25,5 +25,4 @@ public class WalletResponse {
     private BigDecimal totalPaidOut;
     private LocalDateTime lastPayoutAt;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }

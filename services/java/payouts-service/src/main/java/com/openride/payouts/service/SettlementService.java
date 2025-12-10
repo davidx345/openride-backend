@@ -96,15 +96,13 @@ public class SettlementService {
             throw new PayoutsException("Settlement is not pending");
         }
 
-        settlement.markAsProcessing();
+        // Select payment provider (could be based on config or other criteria)
+        PaymentProvider provider = paymentProviderFactory.getProvider();
+        settlement.markAsProcessing(provider.getProviderName());
         settlementRepository.save(settlement);
 
         // Get all payouts in this settlement
         List<PayoutRequest> payouts = payoutRequestRepository.findBySettlementId(settlementId);
-
-        // Select payment provider (could be based on config or other criteria)
-        PaymentProvider provider = paymentProviderFactory.getProvider();
-        settlement.setProvider(provider.getProviderName());
 
         int successCount = 0;
         int failureCount = 0;
@@ -139,7 +137,7 @@ public class SettlementService {
 
         // Update settlement status
         if (failureCount == 0) {
-            settlement.markAsCompleted();
+            settlement.markAsCompleted("BATCH-" + settlement.getBatchReference());
             log.info("Settlement completed successfully: {}, payouts: {}", settlementId, successCount);
         } else {
             String failureReason = String.format("Partial success: %d succeeded, %d failed", 
@@ -164,7 +162,7 @@ public class SettlementService {
 
         Page<Settlement> settlements;
         if (status != null) {
-            settlements = settlementRepository.findByStatus(status, pageable);
+            settlements = settlementRepository.findByStatusOrderByInitiatedAtDesc(status, pageable);
         } else {
             settlements = settlementRepository.findAll(pageable);
         }
