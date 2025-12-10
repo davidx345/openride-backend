@@ -53,9 +53,17 @@ public class Settlement {
         // reference handling if needed
     }
 
+    public void markAsProcessing() {
+        this.status = SettlementStatus.PROCESSING;
+    }
+
     public void markAsCompleted(String reference) {
         this.status = SettlementStatus.COMPLETED;
         // reference handling if needed
+    }
+
+    public void markAsCompleted() {
+        this.status = SettlementStatus.COMPLETED;
     }
 
     @Column(name = "initiated_by", nullable = false)

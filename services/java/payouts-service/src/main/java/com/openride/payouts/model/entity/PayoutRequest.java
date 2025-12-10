@@ -132,9 +132,6 @@ public class PayoutRequest {
     public String getReviewNotes() {
         return reviewerNotes;
     }
-        this.reviewerNotes = notes;
-        this.reviewedAt = LocalDateTime.now();
-    }
 
     /**
      * Reject payout request.
@@ -176,20 +173,6 @@ public class PayoutRequest {
             throw new IllegalStateException("Can only complete PROCESSING payout");
         }
         this.status = PayoutStatus.COMPLETED;
-        this.completedAt = LocalDateTime.now();
-    }
-
-    /**
-     * Mark as failed with reason.
-     * 
-     * @param reason Failure reason
-     */
-    public void markAsFailed(String reason) {
-        if (this.status != PayoutStatus.PROCESSING) {
-            throw new IllegalStateException("Can only fail PROCESSING payout");
-        }
-        this.status = PayoutStatus.FAILED;
-        this.failureReason = reason;
         this.completedAt = LocalDateTime.now();
     }
 

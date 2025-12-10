@@ -135,12 +135,7 @@ public class KeyManagementService {
      * @return the public key in PEM format
      */
     public String getPublicKeyPem() {
-        try {
-            return SignatureUtil.publicKeyToPemString(getPublicKey());
-        } catch (IOException e) {
-            log.error("Error converting public key to PEM", e);
-            throw new RuntimeException("Failed to get public key PEM", e);
-        }
+        return SignatureUtil.publicKeyToPemString(getPublicKey());
     }
     
     /**
