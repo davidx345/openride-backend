@@ -2,7 +2,6 @@ package com.openride.commons.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,11 +56,11 @@ public class JwtUtil {
         Instant expiration = now.plus(accessTokenExpirationMinutes, ChronoUnit.MINUTES);
         
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(userId)
-                .setIssuedAt(Date.from(now))
-                .setExpiration(Date.from(expiration))
-                .signWith(secretKey, SignatureAlgorithm.HS256)
+                .claims(claims)
+                .subject(userId)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiration))
+                .signWith(secretKey)
                 .compact();
     }
 
@@ -76,10 +75,10 @@ public class JwtUtil {
         Instant expiration = now.plus(refreshTokenExpirationDays, ChronoUnit.DAYS);
         
         return Jwts.builder()
-                .setSubject(userId)
-                .setIssuedAt(Date.from(now))
-                .setExpiration(Date.from(expiration))
-                .signWith(secretKey, SignatureAlgorithm.HS256)
+                .subject(userId)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiration))
+                .signWith(secretKey)
                 .compact();
     }
 
@@ -143,11 +142,11 @@ public class JwtUtil {
      * @return All claims
      */
     private Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(secretKey)
+        return Jwts.parser()
+                .verifyWith(secretKey)
                 .build()
-                .parseClaimsJws(token)
-                .getBody();
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     /**
