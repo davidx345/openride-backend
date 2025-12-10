@@ -58,6 +58,19 @@ public class ApiResponse<T> {
     }
 
     /**
+     * Creates a successful response with data and message (for backward compatibility).
+     * Note: The message parameter is ignored as standard API responses don't include success messages.
+     *
+     * @param data    The response data
+     * @param message Success message (ignored, for backward compatibility only)
+     * @param <T>     The type of data
+     * @return ApiResponse with success=true
+     */
+    public static <T> ApiResponse<T> success(T data, String message) {
+        return success(data);
+    }
+
+    /**
      * Creates an error response.
      *
      * @param errorCode The error code

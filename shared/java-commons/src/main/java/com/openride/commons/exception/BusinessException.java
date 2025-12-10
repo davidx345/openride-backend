@@ -53,4 +53,14 @@ public class BusinessException extends RuntimeException {
     public Object[] getArgs() {
         return args;
     }
+
+    /**
+     * Gets the HTTP status code for this exception.
+     * Default is 400 BAD_REQUEST for business exceptions.
+     *
+     * @return HTTP status code (always 400 for base implementation)
+     */
+    public int getHttpStatus() {
+        return 400; // BAD_REQUEST
+    }
 }

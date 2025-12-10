@@ -37,6 +37,7 @@ public class AuthService {
     private final RateLimitService rateLimitService;
     private final StringRedisTemplate redisTemplate;
     private final AuthProperties authProperties;
+    private final JwtUtil jwtUtil;
     private final RestTemplate restTemplate = new RestTemplate();
 
     private static final String REFRESH_TOKEN_PREFIX = "refresh_token:";
@@ -152,11 +153,10 @@ public class AuthService {
 
         AuthResponse.UserInfo user = getOrCreateUser(phoneNumber);
 
-        String accessToken = JwtUtil.generateAccessToken(
+        String accessToken = jwtUtil.generateAccessToken(
             user.getId().toString(),
-            user.getRole(),
-            authProperties.getJwt().getSecret(),
-            authProperties.getJwt().getAccessTokenExpiryMs()
+            phoneNumber,
+            user.getRole()
         );
 
         String refreshToken = generateRefreshToken(user.getId().toString());
@@ -192,11 +192,10 @@ public class AuthService {
 
         AuthResponse.UserInfo user = getUserById(userId);
 
-        String newAccessToken = JwtUtil.generateAccessToken(
+        String newAccessToken = jwtUtil.generateAccessToken(
             user.getId().toString(),
-            user.getRole(),
-            authProperties.getJwt().getSecret(),
-            authProperties.getJwt().getAccessTokenExpiryMs()
+            user.getPhone(),
+            user.getRole()
         );
 
         log.info("Access token refreshed for user: {}", userId);
