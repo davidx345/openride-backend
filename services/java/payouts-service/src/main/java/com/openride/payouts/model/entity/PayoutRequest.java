@@ -129,8 +129,31 @@ public class PayoutRequest {
         return bankAccount != null ? bankAccount.getId() : null;
     }
 
+    /**
+     * Set bank account by ID. Creates a reference BankAccount with only the ID set.
+     * Primarily used for testing purposes.
+     * 
+     * @param bankAccountId The bank account ID
+     */
+    public void setBankAccountId(UUID bankAccountId) {
+        if (bankAccountId != null) {
+            this.bankAccount = BankAccount.builder().id(bankAccountId).build();
+        } else {
+            this.bankAccount = null;
+        }
+    }
+
     public String getReviewNotes() {
         return reviewerNotes;
+    }
+
+    /**
+     * Set review notes (alias for reviewerNotes for API consistency).
+     * 
+     * @param notes The review notes
+     */
+    public void setReviewNotes(String notes) {
+        this.reviewerNotes = notes;
     }
 
     /**

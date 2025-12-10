@@ -68,7 +68,7 @@ public class BookingEventPublisher {
             .baseFare(booking.getPricePerSeat())
             .platformFee(booking.getPlatformFee())
             .totalAmount(booking.getTotalPrice())
-            .source(booking.getBookingSource().name())
+            .source(booking.getBookingSource())
             .expiresAt(booking.getExpiresAt())
             .createdAt(booking.getCreatedAt())
             .eventId(UUID.randomUUID().toString())

@@ -20,6 +20,7 @@ import java.util.UUID;
 public class PayoutResponse {
     private UUID id;
     private UUID driverId;
+    private UUID walletId;
     private BankAccountResponse bankAccount;
     private BigDecimal amount;
     private PayoutStatus status;
@@ -27,8 +28,13 @@ public class PayoutResponse {
     private LocalDateTime reviewedAt;
     private UUID reviewedBy;
     private String reviewerNotes;
+    private String reviewNotes;
     private UUID settlementId;
+    private LocalDateTime processedAt;
     private LocalDateTime completedAt;
     private String failureReason;
+    private String providerReference;
+    private String bankAccountNumber;
+    private String bankName;
     private LocalDateTime createdAt;
 }

@@ -20,10 +20,12 @@ import java.util.UUID;
 public class PayoutEvent {
     private UUID payoutId;
     private UUID driverId;
+    private UUID walletId;
     private BigDecimal amount;
     private PayoutStatus status;
     private String eventType; // REQUESTED, APPROVED, REJECTED, COMPLETED, FAILED
     private LocalDateTime timestamp;
+    private LocalDateTime eventTimestamp;
     private String notes;
     private String failureReason;
 }

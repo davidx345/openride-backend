@@ -70,7 +70,7 @@ public class PayoutService {
         payoutRequest.setDriverId(driverId);
         payoutRequest.setWalletId(wallet.getId());
         payoutRequest.setAmount(request.getAmount());
-        payoutRequest.setBankAccountId(bankAccount.getId());
+        payoutRequest.setBankAccount(bankAccount);
         payoutRequest.setStatus(PayoutStatus.PENDING);
         payoutRequest.setRequestedAt(LocalDateTime.now());
 

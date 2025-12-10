@@ -48,24 +48,6 @@ public class Settlement {
     @Builder.Default
     private SettlementStatus status = SettlementStatus.PENDING;
 
-    public void markAsProcessing(String reference) {
-        this.status = SettlementStatus.PROCESSING;
-        // reference handling if needed
-    }
-
-    public void markAsProcessing() {
-        this.status = SettlementStatus.PROCESSING;
-    }
-
-    public void markAsCompleted(String reference) {
-        this.status = SettlementStatus.COMPLETED;
-        // reference handling if needed
-    }
-
-    public void markAsCompleted() {
-        this.status = SettlementStatus.COMPLETED;
-    }
-
     @Column(name = "initiated_by", nullable = false)
     private UUID initiatedBy;
 
