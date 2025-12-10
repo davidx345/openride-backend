@@ -171,7 +171,7 @@ public class JwtUtil {
      * @param userId The expected user ID
      * @return true if valid, false otherwise
      */
-    public Boolean validateToken(String token, String userId) {
+    public Boolean validateTokenForUser(String token, String userId) {
         try {
             final String extractedUserId = extractUserId(token);
             return (extractedUserId.equals(userId) && !isTokenExpired(token));
