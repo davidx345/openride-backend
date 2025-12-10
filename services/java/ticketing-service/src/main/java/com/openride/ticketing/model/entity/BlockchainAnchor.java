@@ -48,6 +48,11 @@ public class BlockchainAnchor {
     @Column(name = "blockchain_type", nullable = false, length = 50)
     private BlockchainType blockchainType;
 
+    public void markAsConfirmed(Integer confirmations) {
+        this.status = BlockchainAnchorStatus.CONFIRMED;
+        // logic for confirmations if needed
+    }
+
     // Transaction details
     
     @Column(name = "transaction_hash", length = 66)

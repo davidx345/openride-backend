@@ -25,4 +25,5 @@ public class PayoutEvent {
     private String eventType; // REQUESTED, APPROVED, REJECTED, COMPLETED, FAILED
     private LocalDateTime timestamp;
     private String notes;
+    private String failureReason;
 }

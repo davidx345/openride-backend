@@ -24,5 +24,7 @@ public class BankAccountRequest {
     @Pattern(regexp = "^\\d{3}$", message = "Bank code must be 3 digits")
     private String bankCode;
 
+    private String bankName;
+
     private Boolean isPrimary = false;
 }

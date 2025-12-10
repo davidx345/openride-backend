@@ -67,6 +67,9 @@ public class TicketVerificationLog {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+
     @Column(name = "verification_time", nullable = false)
     @Builder.Default
     private LocalDateTime verificationTime = LocalDateTime.now();

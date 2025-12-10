@@ -40,6 +40,9 @@ public class PayoutRequest {
     @Column(name = "driver_id", nullable = false)
     private UUID driverId;
 
+    @Column(name = "wallet_id")
+    private UUID walletId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bank_account_id", nullable = false)
     private BankAccount bankAccount;
@@ -68,8 +71,14 @@ public class PayoutRequest {
     @Column(name = "settlement_id")
     private UUID settlementId;
 
+    @Column(name = "processed_at")
+    private LocalDateTime processedAt;
+
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
+
+    @Column(name = "provider_reference")
+    private String providerReference;
 
     @Column(name = "failure_reason", columnDefinition = "TEXT")
     private String failureReason;
@@ -98,6 +107,31 @@ public class PayoutRequest {
         }
         this.status = PayoutStatus.APPROVED;
         this.reviewedBy = reviewerId;
+        this.reviewerNotes = notes;
+        this.reviewedAt = LocalDateTime.now();
+    }
+
+    public void markAsCompleted(String providerReference) {
+        this.status = PayoutStatus.COMPLETED;
+        this.providerReference = providerReference;
+        this.completedAt = LocalDateTime.now();
+        this.processedAt = LocalDateTime.now();
+    }
+
+    public void markAsFailed(String reason) {
+        this.status = PayoutStatus.FAILED;
+        this.failureReason = reason;
+        this.completedAt = LocalDateTime.now();
+        this.processedAt = LocalDateTime.now();
+    }
+
+    public UUID getBankAccountId() {
+        return bankAccount != null ? bankAccount.getId() : null;
+    }
+
+    public String getReviewNotes() {
+        return reviewerNotes;
+    }
         this.reviewerNotes = notes;
         this.reviewedAt = LocalDateTime.now();
     }

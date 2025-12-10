@@ -130,7 +130,8 @@ public class TicketVerificationService {
         // Verify Merkle proof
         boolean proofValid = MerkleTree.verifyProof(
                 ticket.getHash(),
-                proof.getProofPathArray(),
+                proof.getLeafIndex(),
+                java.util.Arrays.asList(proof.getProofPathArray()),
                 batch.getMerkleRoot()
         );
         

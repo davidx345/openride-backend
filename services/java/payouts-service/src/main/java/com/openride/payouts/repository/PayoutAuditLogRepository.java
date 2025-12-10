@@ -16,6 +16,12 @@ import java.util.UUID;
 @Repository
 public interface PayoutAuditLogRepository extends JpaRepository<PayoutAuditLog, UUID> {
 
+    Page<PayoutAuditLog> findByEntityTypeAndEntityId(String entityType, UUID entityId, Pageable pageable);
+
+    Page<PayoutAuditLog> findByPerformedBy(UUID performedBy, Pageable pageable);
+
+    Page<PayoutAuditLog> findByPerformedAtBetween(LocalDateTime start, LocalDateTime end, Pageable pageable);
+
     /**
      * Find audit logs by entity type and entity ID.
      * 

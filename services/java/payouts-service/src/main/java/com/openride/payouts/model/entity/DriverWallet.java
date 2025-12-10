@@ -49,6 +49,16 @@ public class DriverWallet {
     @Builder.Default
     private BigDecimal totalPaidOut = BigDecimal.ZERO;
 
+    @Column(name = "lifetime_earnings", precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal lifetimeEarnings = BigDecimal.ZERO;
+
+    @Column(name = "last_earning_at")
+    private LocalDateTime lastEarningAt;
+
+    @Version
+    private long version;
+
     @Column(name = "last_payout_at")
     private LocalDateTime lastPayoutAt;
 

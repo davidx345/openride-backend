@@ -40,6 +40,9 @@ public class PayoutAuditLog {
     @Column(name = "action", nullable = false, length = 100)
     private String action;
 
+    @Column(name = "performed_at")
+    private LocalDateTime performedAt;
+
     @Column(name = "performed_by")
     private UUID performedBy;
 

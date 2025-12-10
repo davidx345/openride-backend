@@ -16,6 +16,8 @@ import java.util.UUID;
 @Repository
 public interface BankAccountRepository extends JpaRepository<BankAccount, UUID> {
 
+    boolean existsByDriverIdAndIsPrimaryTrue(UUID driverId);
+
     /**
      * Find all bank accounts for a driver.
      * 

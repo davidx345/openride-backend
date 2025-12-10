@@ -8,4 +8,8 @@ public class BankAccountNotVerifiedException extends PayoutsException {
     public BankAccountNotVerifiedException() {
         super("Bank account must be verified before requesting payout");
     }
+
+    public BankAccountNotVerifiedException(java.util.UUID bankAccountId) {
+        super("Bank account not verified: " + bankAccountId);
+    }
 }

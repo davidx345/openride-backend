@@ -52,6 +52,10 @@ public class MerkleProof {
     @Column(name = "proof_path", nullable = false, columnDefinition = "TEXT")
     private String proofPath;
 
+    public void setProofPath(java.util.List<String> proof) {
+        this.proofPath = proof.toString();
+    }
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
