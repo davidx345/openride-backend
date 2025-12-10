@@ -64,10 +64,10 @@ public class KeyManagementService {
         }
         
         log.info("Loading private key from: {}", privateKeyPath);
-        privateKey = SignatureUtil.loadPrivateKeyFromPem(privateKeyPath);
+        privateKey = SignatureUtil.loadPrivateKeyFromPem(privatePath);
         
         log.info("Loading public key from: {}", publicKeyPath);
-        publicKey = SignatureUtil.loadPublicKeyFromPem(publicKeyPath);
+        publicKey = SignatureUtil.loadPublicKeyFromPem(publicPath);
         
         log.info("Keys loaded successfully");
     }
@@ -92,10 +92,10 @@ public class KeyManagementService {
             
             // Save keys
             log.info("Saving private key to: {}", privateKeyPath);
-            SignatureUtil.savePrivateKeyToPem(privateKey, privateKeyPath);
+            SignatureUtil.savePrivateKeyToPem(privateKey, privatePath);
             
             log.info("Saving public key to: {}", publicKeyPath);
-            SignatureUtil.savePublicKeyToPem(publicKey, publicKeyPath);
+            SignatureUtil.savePublicKeyToPem(publicKey, publicPath);
             
             log.info("Key pair generated and saved successfully");
             

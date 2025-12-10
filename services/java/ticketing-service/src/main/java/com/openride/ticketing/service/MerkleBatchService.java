@@ -4,9 +4,11 @@ import com.openride.ticketing.blockchain.BlockchainClient;
 import com.openride.ticketing.crypto.MerkleTree;
 import com.openride.ticketing.model.entity.BlockchainAnchor;
 import com.openride.ticketing.model.entity.MerkleBatch;
+import com.openride.ticketing.model.entity.MerkleProof;
 import com.openride.ticketing.model.entity.Ticket;
 import com.openride.ticketing.model.enums.MerkleBatchStatus;
 import com.openride.ticketing.model.enums.TicketStatus;
+import com.openride.ticketing.model.enums.BlockchainAnchorStatus;
 import com.openride.ticketing.repository.MerkleBatchRepository;
 import com.openride.ticketing.repository.MerkleProofRepository;
 import com.openride.ticketing.repository.TicketRepository;
@@ -53,11 +55,11 @@ public class MerkleBatchService {
         MerkleBatch batch = findOrCreatePendingBatch();
         
         // Associate ticket with batch
-        ticket.setMerkleBatch(batch);
-        ticketRepository.save(ticket);
+        // ticket.setMerkleBatch(batch);
+        // ticketRepository.save(ticket);
         
         // Increment ticket count
-        batch.addTicket();
+        batch.addTicket(ticket);
         merkleBatchRepository.save(batch);
         
         log.debug("Ticket added to batch: {} (count: {})", batch.getId(), batch.getTicketCount());

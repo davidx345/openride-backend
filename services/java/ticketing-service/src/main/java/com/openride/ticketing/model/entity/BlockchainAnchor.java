@@ -186,4 +186,12 @@ public class BlockchainAnchor {
         }
         return null;
     }
+
+    public void markAsConfirmed(Integer confirmations, Integer requiredConfirmations) {
+        this.confirmationCount = confirmations;
+        if (confirmations >= requiredConfirmations) {
+            this.status = BlockchainAnchorStatus.CONFIRMED;
+            this.confirmedAt = LocalDateTime.now();
+        }
+    }
 }

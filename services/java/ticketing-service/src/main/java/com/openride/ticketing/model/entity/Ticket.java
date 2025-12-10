@@ -150,6 +150,7 @@ public class Ticket {
      */
     public void markAsUsed() {
         this.status = TicketStatus.USED;
+        this.usedAt = LocalDateTime.now();
     }
 
     /**
@@ -164,6 +165,7 @@ public class Ticket {
      */
     public void markAsRevoked() {
         this.status = TicketStatus.REVOKED;
+        this.revokedAt = LocalDateTime.now();
     }
 
     /**
@@ -171,5 +173,18 @@ public class Ticket {
      */
     public void markAsValid() {
         this.status = TicketStatus.VALID;
+        this.generatedAt = LocalDateTime.now();
     }
+
+    @Column(name = "generated_at")
+    private LocalDateTime generatedAt;
+
+    @Column(name = "used_at")
+    private LocalDateTime usedAt;
+
+    @Column(name = "revoked_at")
+    private LocalDateTime revokedAt;
+
+    @OneToOne(mappedBy = "ticket", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private MerkleProof merkleProof;
 }

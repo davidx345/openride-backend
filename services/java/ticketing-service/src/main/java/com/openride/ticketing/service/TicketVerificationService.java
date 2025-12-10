@@ -1,8 +1,12 @@
 package com.openride.ticketing.service;
 
 import com.openride.ticketing.model.entity.Ticket;
+import com.openride.ticketing.model.entity.MerkleBatch;
+import com.openride.ticketing.model.entity.MerkleProof;
+import com.openride.ticketing.model.entity.TicketVerificationLog;
 import com.openride.ticketing.model.enums.VerificationMethod;
 import com.openride.ticketing.model.enums.VerificationResult;
+import com.openride.ticketing.model.enums.TicketStatus;
 import com.openride.ticketing.repository.TicketRepository;
 import com.openride.ticketing.repository.TicketVerificationLogRepository;
 import com.openride.ticketing.crypto.HashUtil;

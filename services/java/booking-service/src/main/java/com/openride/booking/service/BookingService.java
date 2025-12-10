@@ -107,9 +107,9 @@ public class BookingService {
 
         // 2. Validate route with matchmaking service
         MatchRequest matchRequest = MatchRequest.builder()
-            .routeId(request.getRouteId())
-            .originStopId(request.getOriginStopId())
-            .destinationStopId(request.getDestinationStopId())
+            .routeId(request.getRouteId().toString())
+            .originStopId(request.getOriginStopId().toString())
+            .destinationStopId(request.getDestinationStopId().toString())
             .travelDate(request.getTravelDate())
             .seatsRequired(request.getSeatsBooked())
             .build();

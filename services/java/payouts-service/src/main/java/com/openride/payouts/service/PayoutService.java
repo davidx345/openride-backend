@@ -5,6 +5,7 @@ import com.openride.payouts.dto.PayoutRequestDto;
 import com.openride.payouts.dto.PayoutResponse;
 import com.openride.payouts.dto.PayoutReviewRequest;
 import com.openride.payouts.exception.*;
+import com.openride.payouts.kafka.PayoutEventProducer;
 import com.openride.payouts.model.entity.BankAccount;
 import com.openride.payouts.model.entity.DriverWallet;
 import com.openride.payouts.model.entity.PayoutRequest;
