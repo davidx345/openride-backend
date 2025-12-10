@@ -1,6 +1,7 @@
 package com.openride.booking.service;
 
 import com.openride.booking.client.DriverServiceClient;
+import com.openride.booking.client.MatchmakingServiceClient;
 import com.openride.booking.config.BookingConfigProperties;
 import com.openride.booking.dto.*;
 import com.openride.booking.exception.BookingNotCancellableException;

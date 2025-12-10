@@ -1,10 +1,10 @@
 package com.openride.ticketing.service;
 
 import com.openride.ticketing.dto.TicketGenerationRequest;
-import com.openride.ticketing.model.Ticket;
-import com.openride.ticketing.model.TicketStatus;
-import com.openride.ticketing.model.MerkleBatch;
-import com.openride.ticketing.model.MerkleBatchStatus;
+import com.openride.ticketing.model.entity.Ticket;
+import com.openride.ticketing.model.enums.TicketStatus;
+import com.openride.ticketing.model.entity.MerkleBatch;
+import com.openride.ticketing.model.enums.MerkleBatchStatus;
 import com.openride.ticketing.repository.TicketRepository;
 import com.openride.ticketing.repository.MerkleBatchRepository;
 import com.openride.ticketing.util.CanonicalJsonUtil;

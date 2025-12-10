@@ -1,9 +1,9 @@
 package com.openride.ticketing.job;
 
-import com.openride.ticketing.model.MerkleBatch;
-import com.openride.ticketing.model.MerkleBatchStatus;
-import com.openride.ticketing.model.Ticket;
-import com.openride.ticketing.model.TicketStatus;
+import com.openride.ticketing.model.entity.MerkleBatch;
+import com.openride.ticketing.model.enums.MerkleBatchStatus;
+import com.openride.ticketing.model.entity.Ticket;
+import com.openride.ticketing.model.enums.TicketStatus;
 import com.openride.ticketing.repository.MerkleBatchRepository;
 import com.openride.ticketing.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;

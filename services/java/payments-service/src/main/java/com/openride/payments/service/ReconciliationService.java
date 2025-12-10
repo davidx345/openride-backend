@@ -78,8 +78,8 @@ public class ReconciliationService {
                     payment.getKorapayReference()
                 );
 
-                if (verifyResponse.isSuccess()) {
-                    BigDecimal korapayAmount = KorapayVerifyResponse.fromKobo(verifyResponse.getAmount());
+                if (verifyResponse.getStatus()) {
+                    BigDecimal korapayAmount = KorapayVerifyResponse.fromKobo(verifyResponse.getData().getAmount());
                     totalKorapayAmount = totalKorapayAmount.add(korapayAmount);
                     korapayMatchCount++;
 

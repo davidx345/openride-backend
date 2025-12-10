@@ -1,7 +1,7 @@
 package com.openride.ticketing.dto;
 
-import com.openride.ticketing.model.Ticket;
-import com.openride.ticketing.model.TicketStatus;
+import com.openride.ticketing.model.entity.Ticket;
+import com.openride.ticketing.model.enums.TicketStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

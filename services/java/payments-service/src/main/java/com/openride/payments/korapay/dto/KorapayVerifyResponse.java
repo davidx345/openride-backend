@@ -47,6 +47,22 @@ public class KorapayVerifyResponse {
 
         @JsonProperty("payment_method")
         private String paymentMethod;
+    }
+
+    public boolean isSuccess() {
+        return Boolean.TRUE.equals(status) && 
+               data != null && 
+               "success".equalsIgnoreCase(data.getStatus());
+    }
+
+    public Long getAmount() {
+        return data != null ? data.getAmount() : 0L;
+    }
+
+    public static java.math.BigDecimal fromKobo(Long koboAmount) {
+        if (koboAmount == null) return java.math.BigDecimal.ZERO;
+        return java.math.BigDecimal.valueOf(koboAmount).divide(java.math.BigDecimal.valueOf(100));
+    }
 
         @JsonProperty("transaction_reference")
         private String transactionReference;
