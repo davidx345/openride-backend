@@ -113,7 +113,7 @@ class TripCancelledEvent(BaseModel):
                 "route_id": "rt123456-e89b-12d3-a456-426614174000",
                 "cancellation_reason": "Vehicle breakdown",
                 "cancelled_by": "DRIVER",
-                "was_started": true,
+                "was_started": True,
                 "partial_distance_km": 5.2,
             }
         }

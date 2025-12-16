@@ -15,6 +15,7 @@ pydantic-settings = "^2.1.0"
 sqlalchemy = "^2.0.25"
 # Alembic removed
 asyncpg = "^0.29.0"
+psycopg2-binary = "^2.9.9"
 geoalchemy2 = "^0.14.3"
 shapely = "^2.0.2"
 python-dateutil = "^2.8.2"
