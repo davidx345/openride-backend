@@ -1,7 +1,7 @@
 """Pydantic schemas for user-related events."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 class UserRegisteredEvent(BaseModel):
     """User registration event schema."""
 
-    event_type: str = Field(default="user.registered", const=True)
+    event_type: Literal["user.registered"] = "user.registered"
     event_timestamp: datetime
     user_id: UUID
     phone: str = Field(..., pattern=r"^\+234[7-9][0-1]\d{8}$")
@@ -40,7 +40,7 @@ class UserRegisteredEvent(BaseModel):
 class UserKYCVerifiedEvent(BaseModel):
     """User KYC verification event schema."""
 
-    event_type: str = Field(default="user.kyc_verified", const=True)
+    event_type: Literal["user.kyc_verified"] = "user.kyc_verified"
     event_timestamp: datetime
     user_id: UUID
     kyc_status: str = Field(..., pattern="^(VERIFIED|REJECTED)$")
@@ -62,7 +62,7 @@ class UserKYCVerifiedEvent(BaseModel):
 class UserUpgradedToDriverEvent(BaseModel):
     """User upgraded to driver event schema."""
 
-    event_type: str = Field(default="user.upgraded_to_driver", const=True)
+    event_type: Literal["user.upgraded_to_driver"] = "user.upgraded_to_driver"
     event_timestamp: datetime
     user_id: UUID
     previous_role: str = "RIDER"

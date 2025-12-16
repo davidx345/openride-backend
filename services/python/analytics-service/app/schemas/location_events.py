@@ -1,7 +1,7 @@
 """Pydantic schemas for location-related events."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 class DriverLocationUpdatedEvent(BaseModel):
     """Driver location updated event schema (sampled)."""
 
-    event_type: str = Field(default="driver.location.updated", const=True)
+    event_type: Literal["driver.location.updated"] = "driver.location.updated"
     event_timestamp: datetime
     driver_id: UUID
     trip_id: Optional[UUID] = None

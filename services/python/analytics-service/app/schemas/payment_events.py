@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 class PaymentInitiatedEvent(BaseModel):
     """Payment initiated event schema."""
 
-    event_type: str = Field(default="payment.initiated", const=True)
+    event_type: Literal["payment.initiated"] = "payment.initiated"
     event_timestamp: datetime
     payment_id: UUID
     booking_id: UUID
@@ -41,7 +41,7 @@ class PaymentInitiatedEvent(BaseModel):
 class PaymentSuccessEvent(BaseModel):
     """Payment success event schema."""
 
-    event_type: str = Field(default="payment.success", const=True)
+    event_type: Literal["payment.success"] = "payment.success"
     event_timestamp: datetime
     payment_id: UUID
     booking_id: UUID
@@ -76,7 +76,7 @@ class PaymentSuccessEvent(BaseModel):
 class PaymentFailedEvent(BaseModel):
     """Payment failed event schema."""
 
-    event_type: str = Field(default="payment.failed", const=True)
+    event_type: Literal["payment.failed"] = "payment.failed"
     event_timestamp: datetime
     payment_id: UUID
     booking_id: UUID
@@ -112,7 +112,7 @@ class PaymentFailedEvent(BaseModel):
 class PaymentRefundedEvent(BaseModel):
     """Payment refunded event schema."""
 
-    event_type: str = Field(default="payment.refunded", const=True)
+    event_type: Literal["payment.refunded"] = "payment.refunded"
     event_timestamp: datetime
     payment_id: UUID
     booking_id: UUID

@@ -2,7 +2,7 @@
 
 from datetime import datetime, time
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 class RouteCreatedEvent(BaseModel):
     """Route created event schema."""
 
-    event_type: str = Field(default="route.created", const=True)
+    event_type: Literal["route.created"] = "route.created"
     event_timestamp: datetime
     route_id: UUID
     driver_id: UUID
@@ -50,7 +50,7 @@ class RouteCreatedEvent(BaseModel):
 class RouteActivatedEvent(BaseModel):
     """Route activated event schema."""
 
-    event_type: str = Field(default="route.activated", const=True)
+    event_type: Literal["route.activated"] = "route.activated"
     event_timestamp: datetime
     route_id: UUID
     driver_id: UUID
@@ -75,7 +75,7 @@ class RouteActivatedEvent(BaseModel):
 class RouteCancelledEvent(BaseModel):
     """Route cancelled event schema."""
 
-    event_type: str = Field(default="route.cancelled", const=True)
+    event_type: Literal["route.cancelled"] = "route.cancelled"
     event_timestamp: datetime
     route_id: UUID
     driver_id: UUID
@@ -100,7 +100,7 @@ class RouteCancelledEvent(BaseModel):
 class RouteUpdatedEvent(BaseModel):
     """Route updated event schema."""
 
-    event_type: str = Field(default="route.updated", const=True)
+    event_type: Literal["route.updated"] = "route.updated"
     event_timestamp: datetime
     route_id: UUID
     driver_id: UUID

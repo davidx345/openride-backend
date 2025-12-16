@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 class BookingCreatedEvent(BaseModel):
     """Booking created event schema."""
 
-    event_type: str = Field(default="booking.created", const=True)
+    event_type: Literal["booking.created"] = "booking.created"
     event_timestamp: datetime
     booking_id: UUID
     rider_id: UUID
@@ -54,7 +54,7 @@ class BookingCreatedEvent(BaseModel):
 class BookingConfirmedEvent(BaseModel):
     """Booking confirmed event schema (after payment success)."""
 
-    event_type: str = Field(default="booking.confirmed", const=True)
+    event_type: Literal["booking.confirmed"] = "booking.confirmed"
     event_timestamp: datetime
     booking_id: UUID
     rider_id: UUID
@@ -85,7 +85,7 @@ class BookingConfirmedEvent(BaseModel):
 class BookingCancelledEvent(BaseModel):
     """Booking cancelled event schema."""
 
-    event_type: str = Field(default="booking.cancelled", const=True)
+    event_type: Literal["booking.cancelled"] = "booking.cancelled"
     event_timestamp: datetime
     booking_id: UUID
     rider_id: UUID
@@ -112,9 +112,9 @@ class BookingCancelledEvent(BaseModel):
 
 
 class BookingCompletedEvent(BaseModel):
-    """Booking completed event schema (trip finished)."""
+    """Booking completed event schema."""
 
-    event_type: str = Field(default="booking.completed", const=True)
+    event_type: Literal["booking.completed"] = "booking.completed"
     event_timestamp: datetime
     booking_id: UUID
     rider_id: UUID

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 class TripStartedEvent(BaseModel):
     """Trip started event schema."""
 
-    event_type: str = Field(default="trip.started", const=True)
+    event_type: Literal["trip.started"] = "trip.started"
     event_timestamp: datetime
     trip_id: UUID
     booking_id: UUID
@@ -46,7 +46,7 @@ class TripStartedEvent(BaseModel):
 class TripCompletedEvent(BaseModel):
     """Trip completed event schema."""
 
-    event_type: str = Field(default="trip.completed", const=True)
+    event_type: Literal["trip.completed"] = "trip.completed"
     event_timestamp: datetime
     trip_id: UUID
     booking_id: UUID
@@ -89,7 +89,7 @@ class TripCompletedEvent(BaseModel):
 class TripCancelledEvent(BaseModel):
     """Trip cancelled event schema."""
 
-    event_type: str = Field(default="trip.cancelled", const=True)
+    event_type: Literal["trip.cancelled"] = "trip.cancelled"
     event_timestamp: datetime
     trip_id: UUID
     booking_id: UUID

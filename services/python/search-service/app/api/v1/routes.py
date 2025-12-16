@@ -11,7 +11,7 @@ from geoalchemy2.functions import ST_Distance, ST_SetSRID, ST_MakePoint
 from sqlalchemy import and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy.types import Geography
+from geoalchemy2 import Geography
 
 from app.core.cache import get_cache, CacheManager
 from app.core.config import get_settings
