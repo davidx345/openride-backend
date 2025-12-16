@@ -15,15 +15,13 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files
-COPY services/python/fleet-service/pyproject.toml ./
+# Copy project files (pyproject and package) into the image so editable
+# install can find the `app` package before running pip.
+COPY services/python/fleet-service/ ./
 
-# Install Python dependencies
+# Install Python dependencies (editable install expects package files present)
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -e .
-
-# Copy application code
-COPY services/python/fleet-service/ .
 
 # Create non-root user
 RUN useradd -m -u 1000 fleetuser && \
