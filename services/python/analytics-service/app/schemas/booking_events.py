@@ -106,7 +106,7 @@ class BookingCancelledEvent(BaseModel):
                 "route_id": "rt123456-e89b-12d3-a456-426614174000",
                 "cancellation_reason": "Change of plans",
                 "cancelled_by": "RIDER",
-                "refund_initiated": true,
+                "refund_initiated": True,
             }
         }
 

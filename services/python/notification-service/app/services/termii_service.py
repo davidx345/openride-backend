@@ -7,7 +7,7 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-class TermiiService:
+class TermiiSMSService:
     """Termii SMS service."""
 
     def __init__(self) -> None:

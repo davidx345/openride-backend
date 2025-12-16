@@ -119,7 +119,9 @@ services:
       - APP_ENV=${ENVIRONMENT:-production}
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
       - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
-      - JWT_SECRET=${JWT_SECRET}
+      - SECRET_KEY=${JWT_SECRET}
+      - USER_SERVICE_URL=${USER_SERVICE_URL}
+      - DRIVER_SERVICE_URL=${DRIVER_SERVICE_URL}
     networks:
       - openride-python
     restart: unless-stopped
@@ -189,7 +191,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
       - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
       - ELASTICSEARCH_URL=${ELASTICSEARCH_URL}
-      - JWT_SECRET=${JWT_SECRET}
+      - MATCHMAKING_SERVICE_URL=${MATCHMAKING_SERVICE_URL}
     networks:
       - openride-python
     restart: unless-stopped
