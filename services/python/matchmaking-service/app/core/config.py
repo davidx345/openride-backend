@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # Service
     service_name: str = "matchmaking-service"
-    service_port: int = 8084
+    service_port: int = 8092
     debug: bool = False
     environment: Literal["development", "staging", "production"] = "development"
 

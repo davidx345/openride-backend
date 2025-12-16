@@ -1,7 +1,7 @@
 version: '3.9'
 
 services:
-  # PostgreSQL with PostGIS for geospatial queries
+  # PostgreSQL with PostGIS
   postgres:
     image: postgis/postgis:14-3.3
     container_name: openride-postgres
@@ -23,7 +23,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis for caching and distributed locks
+  # Redis
   redis:
     image: redis:7-alpine
     container_name: openride-redis
@@ -40,118 +40,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # pgAdmin for database management
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: openride-pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@openride.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-    ports:
-      - "5050:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    networks:
-      - openride-network
-    depends_on:
-      - postgres
-
-  # Redis Commander for cache inspection
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: openride-redis-commander
-    environment:
-      - REDIS_HOSTS=local:redis:6379:0:openride_redis_password
-    ports:
-      - "8081:8081"
-    networks:
-      - openride-network
-    depends_on:
-      - redis
-
-  # Ticketing Service (Phase 6 - Blockchain-anchored tickets)
-  ticketing-service:
-    build:
-      context: ./services/java/ticketing-service
-      dockerfile: Dockerfile
-    container_name: openride-ticketing-service
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/openride
-      SPRING_DATASOURCE_USERNAME: openride_user
-      SPRING_DATASOURCE_PASSWORD: openride_password
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_PASSWORD: openride_redis_password
-      TICKETING_BLOCKCHAIN_TYPE: POLYGON
-      TICKETING_BLOCKCHAIN_RPC_URL: ${POLYGON_RPC_URL:-https://rpc-mumbai.maticvigil.com/}
-      TICKETING_BLOCKCHAIN_PRIVATE_KEY: ${BLOCKCHAIN_PRIVATE_KEY}
-      TICKETING_BLOCKCHAIN_CONTRACT_ADDRESS: ${BLOCKCHAIN_CONTRACT_ADDRESS}
-      TICKETING_BLOCKCHAIN_CHAIN_ID: 80001
-      TICKETING_CRYPTO_PRIVATE_KEY_PATH: /app/keys/private_key.pem
-      TICKETING_CRYPTO_PUBLIC_KEY_PATH: /app/keys/public_key.pem
-      TICKETING_CRYPTO_AUTO_GENERATE_KEYS: true
-    ports:
-      - "8086:8086"
-    volumes:
-      - ticketing_keys:/app/keys
-    networks:
-      - openride-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8086/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-
-  # Fleet Service (Phase 7 - Real-time tracking & WebSocket)
-  fleet-service:
-    build:
-      context: ./services/python/fleet-service
-      dockerfile: Dockerfile
-    container_name: openride-fleet-service
-    environment:
-      DATABASE_URL: postgresql+asyncpg://openride_user:openride_password@postgres:5432/openride
-      REDIS_URL: redis://redis:6379/0
-      REDIS_PASSWORD: openride_redis_password
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-in-production}
-      JWT_ALGORITHM: HS256
-      SERVICE_NAME: fleet-service
-      LOG_LEVEL: INFO
-      PORT: 8096
-      SOCKETIO_PATH: /socket.io
-      SOCKETIO_CORS_ALLOWED_ORIGINS: "*"
-      LOCATION_UPDATE_RATE_LIMIT: 5
-      MAX_CONNECTIONS_PER_DRIVER: 3
-      WORKER_CONNECTIONS: 1000
-      DB_POOL_SIZE: 20
-      DB_MAX_OVERFLOW: 10
-      REDIS_MAX_CONNECTIONS: 50
-      ENABLE_METRICS: true
-      METRICS_PORT: 9096
-    ports:
-      - "8096:8096"
-      - "9096:9096"
-    networks:
-      - openride-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8096/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-
-  # Kafka & Zookeeper (needed for Phase 9 Payouts Service)
+  # Kafka & Zookeeper
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: openride-zookeeper
@@ -199,31 +88,54 @@ services:
       timeout: 10s
       retries: 5
 
-  # Payouts Service (Phase 9 - Financial Management)
-  payouts-service:
-    build:
-      context: ./services/java/payouts-service
-      dockerfile: Dockerfile
-    container_name: openride-payouts-service
+  # --- Java Services ---
+
+  auth-service:
+    build: ./services/java/auth-service
+    container_name: openride-auth-service
     environment:
-      DATABASE_URL: jdbc:postgresql://postgres:5432/openride
-      DATABASE_USERNAME: openride_user
-      DATABASE_PASSWORD: openride_password
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: openride_redis_password
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
-      KAFKA_GROUP_ID: payouts-service-group
-      PLATFORM_COMMISSION_RATE: 0.15
-      MINIMUM_PAYOUT_AMOUNT: 5000.00
-      AUTO_SETTLEMENT_ENABLED: true
-      SETTLEMENT_SCHEDULE_CRON: "0 0 2 * * MON"
-      PAYSTACK_API_KEY: ${PAYSTACK_API_KEY}
-      PAYMENT_PROVIDER: PAYSTACK
-      SERVER_PORT: 8087
+      SPRING_DATASOURCE_URL: ${JDBC_DATABASE_URL}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: openride_redis_password
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      PORT: 8081
     ports:
-      - "8087:8087"
-      - "9087:9087"
+      - "8081:8081"
+    networks:
+      - openride-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  user-service:
+    build: ./services/java/user-service
+    container_name: openride-user-service
+    environment:
+      SPRING_DATASOURCE_URL: ${JDBC_DATABASE_URL}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      PORT: 8082
+    ports:
+      - "8082:8082"
+    networks:
+      - openride-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  booking-service:
+    build: ./services/java/booking-service
+    container_name: openride-booking-service
+    environment:
+      SPRING_DATASOURCE_URL: ${JDBC_DATABASE_URL}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: openride_redis_password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+      PORT: 8083
+    ports:
+      - "8083:8083"
     networks:
       - openride-network
     depends_on:
@@ -233,14 +145,204 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8087/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
 
-  # ClickHouse for analytics time-series data
+  payments-service:
+    build: ./services/java/payments-service
+    container_name: openride-payments-service
+    environment:
+      SPRING_DATASOURCE_URL: ${JDBC_DATABASE_URL}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: openride_redis_password
+      KORAPAY_SECRET_KEY: ${KORAPAY_SECRET_KEY}
+      KORAPAY_PUBLIC_KEY: ${KORAPAY_PUBLIC_KEY}
+      KORAPAY_WEBHOOK_SECRET: ${KORAPAY_WEBHOOK_SECRET}
+      PORT: 8084
+    ports:
+      - "8084:8084"
+    networks:
+      - openride-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ticketing-service:
+    build: ./services/java/ticketing-service
+    container_name: openride-ticketing-service
+    environment:
+      SPRING_DATASOURCE_URL: ${JDBC_DATABASE_URL}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: openride_redis_password
+      TICKETING_BLOCKCHAIN_TYPE: POLYGON
+      TICKETING_BLOCKCHAIN_RPC_URL: https://rpc-mumbai.maticvigil.com/
+      TICKETING_BLOCKCHAIN_PRIVATE_KEY: dummy_key
+      TICKETING_BLOCKCHAIN_CONTRACT_ADDRESS: dummy_address
+      TICKETING_CRYPTO_AUTO_GENERATE_KEYS: true
+      PORT: 8086
+    ports:
+      - "8086:8086"
+    networks:
+      - openride-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  payouts-service:
+    build: ./services/java/payouts-service
+    container_name: openride-payouts-service
+    environment:
+      DATABASE_URL: ${JDBC_DATABASE_URL}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: openride_redis_password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+      PAYSTACK_API_KEY: ${PAYSTACK_API_KEY}
+      SERVER_PORT: 8087
+    ports:
+      - "8087:8087"
+    networks:
+      - openride-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  admin-service:
+    build: ./services/java/admin-service
+    container_name: openride-admin-service
+    environment:
+      SPRING_DATASOURCE_URL: ${JDBC_DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET_KEY}
+      SERVER_PORT: 8088
+    ports:
+      - "8088:8088"
+    networks:
+      - openride-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # --- Python Services ---
+
+  driver-service:
+    build: ./services/python/driver-service
+    container_name: openride-driver-service
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      USER_SERVICE_URL: http://user-service:8082/api
+    ports:
+      - "8091:8000"
+    networks:
+      - openride-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  matchmaking-service:
+    build: ./services/python/matchmaking-service
+    container_name: openride-matchmaking-service
+    environment:
+      SERVICE_PORT: 8092
+      SECRET_KEY: ${JWT_SECRET_KEY}
+      DRIVER_SERVICE_URL: http://driver-service:8000/v1
+    ports:
+      - "8092:8092"
+    networks:
+      - openride-network
+    depends_on:
+      driver-service:
+        condition: service_started
+
+  search-service:
+    build: ./services/python/search-service
+    container_name: openride-search-service
+    environment:
+      SERVICE_PORT: 8085
+      MATCHMAKING_SERVICE_URL: http://matchmaking-service:8092/v1
+    ports:
+      - "8093:8085"
+    networks:
+      - openride-network
+    depends_on:
+      matchmaking-service:
+        condition: service_started
+
+  notification-service:
+    build: ./services/python/notification-service
+    container_name: openride-notification-service
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: redis://:openride_redis_password@redis:6379/4
+      CELERY_RESULT_BACKEND: redis://:openride_redis_password@redis:6379/5
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      PORT: 8095
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+    ports:
+      - "8095:8095"
+    networks:
+      - openride-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  fleet-service:
+    build: ./services/python/fleet-service
+    container_name: openride-fleet-service
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: openride_redis_password
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      PORT: 8096
+    ports:
+      - "8096:8096"
+      - "9096:9096"
+    networks:
+      - openride-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  analytics-service:
+    build: ./services/python/analytics-service
+    container_name: openride-analytics-service
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_DATABASE: openride_analytics
+      REDIS_URL: redis://:openride_redis_password@redis:6379/2
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+      LOG_LEVEL: INFO
+    ports:
+      - "8097:8097"
+    networks:
+      - openride-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+
+  # ClickHouse
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     container_name: openride-clickhouse
@@ -262,38 +364,23 @@ services:
       timeout: 10s
       retries: 3
 
-  # Analytics Service (Python FastAPI)
-  analytics-service:
-    build:
-      context: ./services/python/analytics-service
-      dockerfile: Dockerfile
-    container_name: openride-analytics-service
-    ports:
-      - "8097:8097"
-      - "9097:9097"
+  # pgAdmin
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: openride-pgadmin
     environment:
-      DATABASE_URL: postgresql+asyncpg://openride_user:openride_password@postgres:5432/openride
-      CLICKHOUSE_HOST: clickhouse
-      CLICKHOUSE_PORT: 8123
-      CLICKHOUSE_DATABASE: openride_analytics
-      REDIS_URL: redis://:openride_redis_password@redis:6379/2
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
-      LOG_LEVEL: INFO
-      DEBUG: "false"
+      PGADMIN_DEFAULT_EMAIL: admin@openride.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - openride-network
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-      clickhouse:
-        condition: service_healthy
-    networks:
-      - openride-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8097/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
 networks:
   openride-network:

@@ -47,7 +47,7 @@ spring:
           min-idle: 2
 
 server:
-  port: ${SERVER_PORT:8086}
+  port: ${SERVER_PORT:8088}
   servlet:
     context-path: /admin-service
 
