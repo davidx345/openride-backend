@@ -19,13 +19,13 @@ services:
     environment:
       - APP_ENV=${ENVIRONMENT:-production}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
-      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST:-localhost}
       - CLICKHOUSE_PORT=${CLICKHOUSE_PORT:-9000}
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-      - CLICKHOUSE_DATABASE=${CLICKHOUSE_DATABASE}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-}
+      - CLICKHOUSE_DATABASE=${CLICKHOUSE_DATABASE:-openride_analytics}
       - JWT_SECRET_KEY=${JWT_SECRET}
     networks:
       - openride-python
@@ -55,8 +55,8 @@ services:
       - "8090:8000"
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-production}
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
-      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
       - JWT_SECRET_KEY=${JWT_SECRET}
     networks:
       - openride-python
@@ -86,8 +86,8 @@ services:
       - "8096:8096"
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-production}
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
-      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
       - JWT_SECRET=${JWT_SECRET}
     networks:
       - openride-python
@@ -117,8 +117,8 @@ services:
       - "8091:8084"
     environment:
       - APP_ENV=${ENVIRONMENT:-production}
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
-      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
       - SECRET_KEY=${JWT_SECRET}
       - USER_SERVICE_URL=${USER_SERVICE_URL}
       - DRIVER_SERVICE_URL=${DRIVER_SERVICE_URL}
@@ -150,16 +150,16 @@ services:
       - "8095:8095"
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-production}
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
-      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
       - JWT_SECRET=${JWT_SECRET}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
-      - TWILIO_FROM_PHONE=${TWILIO_PHONE_NUMBER}
-      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
-      - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL}
-      - FCM_PROJECT_ID=${FCM_PROJECT_ID}
-      - FCM_CREDENTIALS=${FCM_CREDENTIALS}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      - TWILIO_FROM_PHONE=${TWILIO_PHONE_NUMBER:-}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL:-noreply@openride.com}
+      - FCM_PROJECT_ID=${FCM_PROJECT_ID:-}
+      - FCM_CREDENTIALS=${FCM_CREDENTIALS:-}
     networks:
       - openride-python
     restart: unless-stopped
@@ -188,9 +188,9 @@ services:
       - "8092:8085"
     environment:
       - APP_ENV=${ENVIRONMENT:-production}
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}
-      - REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT:-6379}/0
-      - ELASTICSEARCH_URL=${ELASTICSEARCH_URL}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - ELASTICSEARCH_URL=${ELASTICSEARCH_URL:-http://localhost:9200}
       - MATCHMAKING_SERVICE_URL=${MATCHMAKING_SERVICE_URL}
     networks:
       - openride-python

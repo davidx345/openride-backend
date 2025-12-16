@@ -100,14 +100,14 @@ class RouteStop(Base):
     description="Public endpoint to search for available routes near origin/destination",
 )
 async def search_routes(
-    lat: Annotated[float, Query(ge=-90, le=90, description="Origin latitude")],
-    lng: Annotated[float, Query(ge=-180, le=180, description="Origin longitude")],
-    dest_lat: Annotated[float | None, Query(None, ge=-90, le=90, description="Destination latitude")] = None,
-    dest_lng: Annotated[float | None, Query(None, ge=-180, le=180, description="Destination longitude")] = None,
-    time_str: Annotated[str | None, Query(None, alias="time", description="Desired time (HH:MM:SS)")] = None,
-    radius: Annotated[float, Query(5.0, ge=0.1, le=20.0, description="Search radius (km)")] = 5.0,
-    limit: Annotated[int, Query(20, ge=1, le=100, description="Max results")] = 20,
-    offset: Annotated[int, Query(0, ge=0, description="Pagination offset")] = 0,
+    lat: float = Query(..., ge=-90, le=90, description="Origin latitude"),
+    lng: float = Query(..., ge=-180, le=180, description="Origin longitude"),
+    dest_lat: float | None = Query(None, ge=-90, le=90, description="Destination latitude"),
+    dest_lng: float | None = Query(None, ge=-180, le=180, description="Destination longitude"),
+    time_str: str | None = Query(None, alias="time", description="Desired time (HH:MM:SS)"),
+    radius: float = Query(5.0, ge=0.1, le=20.0, description="Search radius (km)"),
+    limit: int = Query(20, ge=1, le=100, description="Max results"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ) -> dict:

@@ -19,8 +19,7 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 10
     
     # Redis
-    REDIS_URL: str = "redis://localhost:6379/0"
-    REDIS_PASSWORD: str = ""
+    REDIS_URL: str
     REDIS_MAX_CONNECTIONS: int = 50
     
     # JWT

@@ -81,7 +81,7 @@ class TripCompletedEvent(BaseModel):
                 "end_lon": 3.4219,
                 "driver_earnings": "2550.00",
                 "platform_commission": "450.00",
-                "on_time": true,
+                "on_time": True,
             }
         }
 

@@ -4,9 +4,9 @@ from typing import Sequence
 from uuid import UUID
 
 from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_MakePoint, ST_SetSRID
+from geoalchemy2.types import Geography
 from sqlalchemy import and_, cast, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.types import Geography
 
 from app.models.hub import Hub
 
