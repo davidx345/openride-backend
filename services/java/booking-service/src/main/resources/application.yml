@@ -8,9 +8,7 @@ spring:
     name: booking-service
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:openride_booking}
-    username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:postgres}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/openride_booking}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 50
@@ -42,10 +40,7 @@ spring:
     validate-on-migrate: true
 
   redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
-    password: ${REDIS_PASSWORD:}
-    database: ${REDIS_DB:3}
+    url: ${REDIS_URL:redis://localhost:6379/3}
     lettuce:
       pool:
         max-active: 50
