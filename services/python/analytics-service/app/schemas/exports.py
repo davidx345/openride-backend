@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
@@ -29,7 +29,7 @@ class ExportRequest(BaseModel):
     query: str = Field(..., description="ClickHouse SQL query to export")
     format: ExportFormat = Field(ExportFormat.CSV, description="Export format")
     filename: Optional[str] = Field(None, description="Custom filename (without extension)")
-    query_params: Optional[Dict[str, any]] = Field(None, description="Query parameters")
+    query_params: Optional[Dict[str, Any]] = Field(None, description="Query parameters")
     row_limit: int = Field(100000, ge=1, le=1000000, description="Maximum rows to export")
 
 

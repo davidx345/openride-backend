@@ -18,7 +18,7 @@ services:
       - "8081:8081"
     environment:
       - SPRING_PROFILES_ACTIVE=${ENVIRONMENT:-production}
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${JDBC_DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
       - JWT_SECRET=${JWT_SECRET}
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
@@ -52,7 +52,7 @@ services:
       - "8082:8082"
     environment:
       - SPRING_PROFILES_ACTIVE=${ENVIRONMENT:-production}
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${JDBC_DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
       - JWT_SECRET=${JWT_SECRET}
     networks:
@@ -83,7 +83,7 @@ services:
       - "8083:8083"
     environment:
       - SPRING_PROFILES_ACTIVE=${ENVIRONMENT:-production}
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${JDBC_DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
     networks:
       - openride-java
@@ -113,7 +113,7 @@ services:
       - "8084:8084"
     environment:
       - SPRING_PROFILES_ACTIVE=${ENVIRONMENT:-production}
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${JDBC_DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
       - STRIPE_API_KEY=${STRIPE_API_KEY}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
@@ -145,7 +145,7 @@ services:
       - "8085:8085"
     environment:
       - SPRING_PROFILES_ACTIVE=${ENVIRONMENT:-production}
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${JDBC_DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
     networks:
       - openride-java
@@ -175,7 +175,7 @@ services:
       - "8086:8086"
     environment:
       - SPRING_PROFILES_ACTIVE=${ENVIRONMENT:-production}
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${JDBC_DATABASE_URL}
     networks:
       - openride-java
     restart: unless-stopped
@@ -204,7 +204,7 @@ services:
       - "8087:8087"
     environment:
       - SPRING_PROFILES_ACTIVE=${ENVIRONMENT:-production}
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${JDBC_DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
     networks:
       - openride-java
