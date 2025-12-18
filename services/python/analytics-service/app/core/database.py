@@ -1,16 +1,33 @@
-"""Database session management for analytics service."""
+"""Database connection and session management for analytics service.
+
+This module provides async database session management compatible with SQLAlchemy 2.0.
+It handles connection pooling and ensures proper async driver usage (asyncpg).
+"""
 
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
+from sqlalchemy.orm import declarative_base
 
 from app.core.config import settings
 
 
 def get_async_database_url(url: str) -> str:
-    """Convert database URL to async-compatible format with asyncpg driver."""
+    """Convert database URL to async-compatible format.
+    
+    Ensures the URL uses the asyncpg driver for async SQLAlchemy.
+    Handles various input formats:
+    - postgresql://... -> postgresql+asyncpg://...
+    - postgres://... -> postgresql+asyncpg://...
+    - postgresql+asyncpg://... -> unchanged
+    
+    Args:
+        url: Database connection URL
+        
+    Returns:
+        Async-compatible database URL with asyncpg driver
+    """
     if url.startswith("postgresql+asyncpg://"):
         return url
     if url.startswith("postgresql://"):
@@ -23,7 +40,7 @@ def get_async_database_url(url: str) -> str:
 # Get async-compatible database URL
 ASYNC_DATABASE_URL = get_async_database_url(settings.DATABASE_URL)
 
-# Create async engine
+# Create async engine with connection pooling
 engine = create_async_engine(
     ASYNC_DATABASE_URL,
     echo=settings.DEBUG,
@@ -31,7 +48,7 @@ engine = create_async_engine(
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_timeout=settings.DB_POOL_TIMEOUT,
     pool_recycle=settings.DB_POOL_RECYCLE,
-    pool_pre_ping=True,  # Verify connections before using
+    pool_pre_ping=True,
 )
 
 # Create async session factory
@@ -43,9 +60,12 @@ AsyncSessionLocal = async_sessionmaker(
     autoflush=False,
 )
 
+# Base class for SQLAlchemy models
+Base = declarative_base()
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get database session.
+    """FastAPI dependency to get database session.
     
     Yields:
         AsyncSession: Database session
@@ -100,7 +120,7 @@ async def init_db() -> None:
         # Create all tables (development only)
         # In production, use Alembic migrations
         if settings.DEBUG:
-            await conn.run_sync(models.Base.metadata.create_all)
+            await conn.run_sync(Base.metadata.create_all)
 
 
 async def close_db() -> None:

@@ -12,9 +12,24 @@ from app.core.config import get_settings
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
+
+def get_async_database_url(url: str) -> str:
+    """Convert database URL to async-compatible format with asyncpg driver."""
+    if url.startswith("postgresql+asyncpg://"):
+        return url
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+asyncpg://", 1)
+    return url
+
+
+# Get async-compatible database URL
+ASYNC_DATABASE_URL = get_async_database_url(settings.database_url)
+
 # Create primary async engine
 engine = create_async_engine(
-    settings.database_url,
+    ASYNC_DATABASE_URL,
     echo=settings.debug,
     pool_size=settings.min_db_connections,
     max_overflow=settings.max_db_connections - settings.min_db_connections,
@@ -28,8 +43,9 @@ engine = create_async_engine(
 replica_engine = None
 if settings.replica_database_url:
     logger.info("Initializing read replica connection pool")
+    replica_url = get_async_database_url(settings.replica_database_url)
     replica_engine = create_async_engine(
-        settings.replica_database_url,
+        replica_url,
         echo=settings.debug,
         pool_size=settings.min_db_connections,
         max_overflow=settings.max_db_connections - settings.min_db_connections,

@@ -4,9 +4,24 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import declarative_base
 from app.config import settings
 
+
+def get_async_database_url(url: str) -> str:
+    """Convert database URL to async-compatible format with asyncpg driver."""
+    if url.startswith("postgresql+asyncpg://"):
+        return url
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+asyncpg://", 1)
+    return url
+
+
+# Get async-compatible database URL
+ASYNC_DATABASE_URL = get_async_database_url(settings.database_url)
+
 # Create async engine
 engine = create_async_engine(
-    settings.database_url,
+    ASYNC_DATABASE_URL,
     echo=settings.app_env == "development",
     pool_size=settings.database_pool_size,
     max_overflow=settings.database_max_overflow,

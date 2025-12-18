@@ -13,6 +13,17 @@ from sqlalchemy.pool import NullPool
 from app.core.config import settings
 
 
+def get_async_database_url(url: str) -> str:
+    """Convert database URL to async-compatible format with asyncpg driver."""
+    if url.startswith("postgresql+asyncpg://"):
+        return url
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+asyncpg://", 1)
+    return url
+
+
 class DatabaseManager:
     """Manages database connections and sessions"""
     
@@ -22,8 +33,9 @@ class DatabaseManager:
     
     def initialize(self) -> None:
         """Initialize database engine and session factory"""
+        async_url = get_async_database_url(settings.DATABASE_URL)
         self._engine = create_async_engine(
-            settings.DATABASE_URL,
+            async_url,
             echo=settings.LOG_LEVEL == 'DEBUG',
             pool_size=settings.DB_POOL_SIZE,
             max_overflow=settings.DB_MAX_OVERFLOW,
