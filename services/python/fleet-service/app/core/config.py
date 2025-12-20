@@ -54,11 +54,7 @@ class Settings(BaseSettings):
     
     @property
     def redis_url_with_password(self) -> str:
-        """Get Redis URL with password if configured"""
-        if self.REDIS_PASSWORD:
-            # Insert password into URL
-            url = self.REDIS_URL.replace("redis://", f"redis://:{self.REDIS_PASSWORD}@")
-            return url
+        """Get Redis URL (already includes auth in connection string)"""
         return self.REDIS_URL
     
     class Config:

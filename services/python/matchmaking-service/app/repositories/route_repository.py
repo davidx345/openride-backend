@@ -6,10 +6,10 @@ from typing import Optional, Sequence
 from uuid import UUID
 
 from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_MakePoint, ST_SetSRID
+from geoalchemy2.types import Geography
 from sqlalchemy import and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy.types import Geography
 
 from app.models.route import Route, RouteStatus
 from app.models.route_stop import RouteStop

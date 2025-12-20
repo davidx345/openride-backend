@@ -40,6 +40,9 @@ AsyncSessionLocal = async_sessionmaker(
 # Base class for models
 Base = declarative_base()
 
+# Alias for backward compatibility
+async_session_maker = AsyncSessionLocal
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for getting async database session."""
