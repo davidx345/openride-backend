@@ -55,7 +55,7 @@ class ReportScheduleUpdate(BaseModel):
     frequency: Optional[ReportFrequency] = None
     format: Optional[ReportFormat] = None
     recipients: Optional[List[EmailStr]] = None
-    parameters: Optional[Dict[str, any]] = None
+    parameters: Optional[Dict[str, Any]] = None
     active: Optional[bool] = None
     description: Optional[str] = None
 
@@ -69,7 +69,7 @@ class ReportSchedule(BaseModel):
     frequency: ReportFrequency
     format: ReportFormat
     recipients: List[str]
-    parameters: Optional[Dict[str, any]]
+    parameters: Optional[Dict[str, Any]]
     active: bool
     description: Optional[str]
     created_at: datetime
