@@ -23,8 +23,12 @@ async def lifespan(app: FastAPI):
         # Connect to Redis
         await redis_manager.connect()
         
-        # Connect to ClickHouse
-        clickhouse_manager.connect()
+        # Connect to ClickHouse (Optional)
+        try:
+            clickhouse_manager.connect()
+        except Exception as e:
+            logger.warning("clickhouse_connection_failed_startup", error=str(e))
+            # Continue startup even if ClickHouse fails
         
         logger.info("application_ready")
         
