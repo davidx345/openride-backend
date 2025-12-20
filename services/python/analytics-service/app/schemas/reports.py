@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -43,7 +43,7 @@ class ReportScheduleCreate(BaseModel):
     frequency: ReportFrequency
     format: ReportFormat = ReportFormat.EXCEL
     recipients: List[EmailStr] = Field(..., min_items=1)
-    parameters: Optional[Dict[str, any]] = Field(None, description="Report-specific parameters")
+    parameters: Optional[Dict[str, Any]] = Field(None, description="Report-specific parameters")
     active: bool = True
     description: Optional[str] = None
 
