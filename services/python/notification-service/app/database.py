@@ -55,3 +55,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
+
+
+# Alias for backward compatibility with existing API endpoints
+get_db_session = get_db
