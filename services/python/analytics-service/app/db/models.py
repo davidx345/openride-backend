@@ -163,3 +163,56 @@ class DataQualityResult(Base):
             name="ck_dq_status",
         ),
     )
+
+
+class ReportScheduleModel(Base):
+    """Report schedule model for scheduled report generation."""
+
+    __tablename__ = "report_schedules"
+
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    report_name = Column(String(255), nullable=False)
+    report_type = Column(String(50), nullable=False)
+    frequency = Column(String(20), nullable=False)
+    format = Column(String(20), nullable=False, server_default="excel")
+    recipients = Column(ARRAY(String), nullable=False)
+    parameters = Column(JSONB, nullable=True)
+    active = Column(Boolean, nullable=False, server_default="true")
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    last_execution = Column(DateTime(timezone=True), nullable=True)
+    next_execution = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "frequency IN ('daily', 'weekly', 'monthly')",
+            name="ck_schedule_frequency",
+        ),
+        CheckConstraint(
+            "format IN ('pdf', 'excel', 'csv')",
+            name="ck_schedule_format",
+        ),
+    )
+
+
+class ReportExecutionModel(Base):
+    """Report execution record for scheduled reports."""
+
+    __tablename__ = "report_schedule_executions"
+
+    id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    schedule_id = Column(PG_UUID(as_uuid=True), ForeignKey("report_schedules.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String(20), nullable=False)
+    started_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    file_path = Column(String(500), nullable=True)
+    error_message = Column(Text, nullable=True)
+    rows_exported = Column(Integer, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'running', 'completed', 'failed')",
+            name="ck_schedule_exec_status",
+        ),
+    )

@@ -7,6 +7,8 @@ from app.db.models import (
     MetricCache,
     ReportConfig,
     ReportExecution,
+    ReportExecutionModel,
+    ReportScheduleModel,
     ScheduledJob,
 )
 from app.db.session import (
@@ -25,6 +27,8 @@ __all__ = [
     "MetricCache",
     "ReportConfig",
     "ReportExecution",
+    "ReportExecutionModel",
+    "ReportScheduleModel",
     "ScheduledJob",
     "AsyncSessionLocal",
     "close_db",
