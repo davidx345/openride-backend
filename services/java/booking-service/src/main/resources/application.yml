@@ -68,11 +68,13 @@ spring:
       expiration: 86400000 # 24 hours
 
 # Redisson Configuration
+# Note: This uses REDIS_URL directly. If REDIS_URL is not set, falls back to localhost
+# REDIS_URL format: redis://[password@]host:port[/database]
 redisson:
   single-server-config:
-    address: redis://${REDIS_HOST:localhost}:${REDIS_PORT:6379}
-    password: ${REDIS_PASSWORD:}
-    database: ${REDIS_DB:3}
+    # Parse from REDIS_URL or use default
+    # For production: redis://default:password@host:port/0
+    address: ${REDIS_URL:redis://localhost:6379/3}
     connection-pool-size: 50
     connection-minimum-idle-size: 10
     retry-attempts: 3

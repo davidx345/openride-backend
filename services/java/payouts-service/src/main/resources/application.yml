@@ -60,7 +60,7 @@ spring:
       concurrency: 3
 
 server:
-  port: ${SERVER_PORT:8087}
+  port: ${SERVER_PORT:8085}
   shutdown: graceful
   error:
     include-message: always
