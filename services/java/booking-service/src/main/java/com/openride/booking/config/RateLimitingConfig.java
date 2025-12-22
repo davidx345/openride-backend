@@ -30,17 +30,13 @@ public class RateLimitingConfig {
     @Value("${rate-limiting.per-user.burst-capacity:20}")
     private int burstCapacity;
 
-    @Value("${spring.redis.host}")
-    private String redisHost;
-
-    @Value("${spring.redis.port}")
-    private int redisPort;
+    @Value("${spring.redis.url:redis://localhost:6379/3}")
+    private String redisUrl;
 
     @Bean
     public ProxyManager<String> proxyManager() {
-        RedisClient redisClient = RedisClient.create(
-            String.format("redis://%s:%d", redisHost, redisPort)
-        );
+        // Parse REDIS_URL directly instead of separate host/port
+        RedisClient redisClient = RedisClient.create(redisUrl);
         
         StatefulRedisConnection<String, byte[]> connection = redisClient.connect(
             io.lettuce.core.codec.RedisCodec.of(

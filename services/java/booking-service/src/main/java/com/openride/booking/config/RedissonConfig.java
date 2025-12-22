@@ -18,28 +18,17 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RedissonConfig {
 
-    @Value("${spring.redis.host}")
-    private String redisHost;
-
-    @Value("${spring.redis.port}")
-    private int redisPort;
-
-    @Value("${spring.redis.password:}")
-    private String redisPassword;
-
-    @Value("${spring.redis.database:3}")
-    private int redisDatabase;
+    @Value("${spring.redis.url:redis://localhost:6379/3}")
+    private String redisUrl;
 
     @Bean
     public RedissonClient redissonClient() {
         Config config = new Config();
         
-        String address = "redis://" + redisHost + ":" + redisPort;
-        
+        // Use REDIS_URL directly - Redisson will parse it
+        // Format: redis://[password@]host:port[/database]
         config.useSingleServer()
-            .setAddress(address)
-            .setPassword(redisPassword.isEmpty() ? null : redisPassword)
-            .setDatabase(redisDatabase)
+            .setAddress(redisUrl)
             .setConnectionPoolSize(50)
             .setConnectionMinimumIdleSize(10)
             .setRetryAttempts(3)

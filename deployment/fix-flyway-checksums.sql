@@ -1,26 +1,36 @@
 -- ========================================
 -- Flyway Checksum Repair Script
 -- ========================================
--- This script repairs Flyway migration checksum mismatches
--- Run this on your Supabase database
+-- Run this on your Supabase database to fix migration checksum mismatches
+-- Connect via: https://supabase.com/dashboard -> SQL Editor
 
--- OPTION 1: Delete the schema history and let Flyway rebuild it
--- WARNING: Only use if you're sure all migrations have been applied
+-- Delete problematic flyway history entries
+-- They will be recreated with correct checksums when services restart
 
--- For auth-service
-DELETE FROM flyway_schema_history WHERE version = '1' AND script = 'V1__Create_otp_requests_table.sql';
+-- For auth-service (version 1 mismatch)
+DELETE FROM flyway_schema_history 
+WHERE version = '1' 
+AND script = 'V1__Create_otp_requests_table.sql';
 
--- For payments-service  
-DELETE FROM flyway_schema_history WHERE version IN ('1', '2') AND script IN ('V1__create_payments_tables.sql', 'V2__update_reconciliation_schema.sql');
+-- For payments-service (versions 1 and 2 mismatch)
+DELETE FROM flyway_schema_history 
+WHERE version IN ('1', '2') 
+AND script IN ('V1__create_payments_tables.sql', 'V2__update_reconciliation_schema.sql');
 
--- For ticketing-service
-DELETE FROM flyway_schema_history WHERE version = '1' AND script = 'V1__initial_schema.sql';
+-- For ticketing-service (version 1 mismatch)
+DELETE FROM flyway_schema_history 
+WHERE version = '1' 
+AND script = 'V1__initial_schema.sql';
 
--- OPTION 2: Update checksums directly (if you know the new checksum values)
--- You'll need to calculate the actual checksums - this is just an example
--- UPDATE flyway_schema_history SET checksum = NEW_CHECKSUM WHERE version = '1' AND script = 'V1__Create_otp_requests_table.sql';
+-- Verify what will be deleted (run this FIRST to check):
+-- SELECT * FROM flyway_schema_history 
+-- WHERE (version = '1' AND script = 'V1__Create_otp_requests_table.sql')
+--    OR (version IN ('1', '2') AND script IN ('V1__create_payments_tables.sql', 'V2__update_reconciliation_schema.sql'))
+--    OR (version = '1' AND script = 'V1__initial_schema.sql');
 
 -- ========================================
--- After running this, restart your services
--- Flyway will re-apply migrations with correct checksums
+-- After running this SQL:
+-- 1. Rebuild your Docker images (code has been fixed)
+-- 2. Restart your services
+-- 3. Flyway will re-baseline with correct checksums
 -- ========================================
