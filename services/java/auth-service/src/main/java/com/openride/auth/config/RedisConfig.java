@@ -13,14 +13,8 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RedisConfig {
 
-    @Value("${spring.data.redis.host}")
-    private String redisHost;
-
-    @Value("${spring.data.redis.port}")
-    private int redisPort;
-
-    @Value("${spring.data.redis.password}")
-    private String redisPassword;
+    @Value("${spring.data.redis.url}")
+    private String redisUrl;
 
     /**
      * Creates Redisson client for distributed locks and rate limiting.
@@ -31,8 +25,7 @@ public class RedisConfig {
     public RedissonClient redissonClient() {
         Config config = new Config();
         config.useSingleServer()
-            .setAddress("redis://" + redisHost + ":" + redisPort)
-            .setPassword(redisPassword)
+            .setAddress(redisUrl)
             .setConnectionPoolSize(10)
             .setConnectionMinimumIdleSize(5);
         return Redisson.create(config);

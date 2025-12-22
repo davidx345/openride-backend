@@ -47,8 +47,7 @@ public class RateLimitingConfig {
 
         return LettuceBasedProxyManager.builderFor(connection)
             .withExpirationStrategy(
-                io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager.ExpirationAfterWriteStrategy
-                    .basedOnTimeForRefillingBucketUpToMax(Duration.ofMinutes(1))
+                io.github.bucket4j.distributed.ExpirationAfterWriteStrategy.basedOnTimeForRefillingBucketUpToMax(Duration.ofMinutes(1))
             )
             .build();
     }

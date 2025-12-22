@@ -59,6 +59,17 @@ spring:
       ack-mode: manual
       concurrency: 3
 
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 3000ms
+
 server:
   port: ${SERVER_PORT:8085}
   shutdown: graceful
@@ -94,17 +105,7 @@ springdoc:
     enabled: true
   show-actuator: true
 
-# Redis Configuration
-redis:
-  host: ${REDIS_HOST:localhost}
-  port: ${REDIS_PORT:6379}
-  password: ${REDIS_PASSWORD:}
-  timeout: 5000
-  pool:
-    max-active: 20
-    max-idle: 10
-    min-idle: 5
-    max-wait: 3000
+
 
 # Financial Configuration
 financial:
