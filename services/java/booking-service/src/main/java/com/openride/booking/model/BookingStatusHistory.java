@@ -3,6 +3,8 @@ package com.openride.booking.model;
 import com.openride.booking.model.enums.BookingStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -45,6 +47,7 @@ public class BookingStatusHistory {
     @Column(name = "reason", columnDefinition = "TEXT")
     private String reason;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "metadata", columnDefinition = "jsonb")
     @Builder.Default
     private Map<String, Object> metadata = new HashMap<>();
