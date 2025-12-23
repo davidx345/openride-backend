@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 
@@ -27,16 +28,14 @@ def get_async_database_url(url: str) -> str:
 # Get async-compatible database URL
 ASYNC_DATABASE_URL = get_async_database_url(settings.database_url)
 
-# Create primary async engine
+# Create primary async engine with NullPool for transaction pooler compatibility
+# NullPool is required when using external transaction poolers (PgBouncer/Supabase)
+# to prevent double pooling and connection state issues
 engine = create_async_engine(
     ASYNC_DATABASE_URL,
+    poolclass=NullPool,
     echo=settings.debug,
-    pool_size=settings.min_db_connections,
-    max_overflow=settings.max_db_connections - settings.min_db_connections,
-    pool_recycle=settings.db_pool_recycle,
-    pool_timeout=settings.db_pool_timeout,
     pool_pre_ping=True,
-    echo_pool=settings.db_echo_pool,
 )
 
 # Create read replica engine if configured
@@ -46,13 +45,9 @@ if settings.replica_database_url:
     replica_url = get_async_database_url(settings.replica_database_url)
     replica_engine = create_async_engine(
         replica_url,
+        poolclass=NullPool,
         echo=settings.debug,
-        pool_size=settings.min_db_connections,
-        max_overflow=settings.max_db_connections - settings.min_db_connections,
-        pool_recycle=settings.db_pool_recycle,
-        pool_timeout=settings.db_pool_timeout,
         pool_pre_ping=True,
-        echo_pool=settings.db_echo_pool,
     )
 
 # Create async session maker

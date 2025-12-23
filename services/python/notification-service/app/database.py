@@ -2,6 +2,7 @@
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.pool import NullPool
 from app.config import settings
 
 
@@ -19,12 +20,13 @@ def get_async_database_url(url: str) -> str:
 # Get async-compatible database URL
 ASYNC_DATABASE_URL = get_async_database_url(settings.database_url)
 
-# Create async engine
+# Create async engine with NullPool for transaction pooler compatibility
+# NullPool is required when using external transaction poolers (PgBouncer/Supabase)
+# to prevent double pooling and connection state issues
 engine = create_async_engine(
     ASYNC_DATABASE_URL,
+    poolclass=NullPool,
     echo=settings.app_env == "development",
-    pool_size=settings.database_pool_size,
-    max_overflow=settings.database_max_overflow,
     pool_pre_ping=True,
 )
 

@@ -3,15 +3,18 @@ spring:
     name: payouts-service
   
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/openride}
+    # prepareThreshold=0 required for Supabase/PgBouncer transaction pooling
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/openride?prepareThreshold=0}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
       minimum-idle: 2
       connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+      idle-timeout: 300000
+      max-lifetime: 600000
       pool-name: PayoutsServicePool
+      data-source-properties:
+        prepareThreshold: 0
   
   jpa:
     hibernate:

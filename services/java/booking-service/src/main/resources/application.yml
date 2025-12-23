@@ -8,7 +8,8 @@ spring:
     name: booking-service
 
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/openride_booking}
+    # prepareThreshold=0 required for Supabase/PgBouncer transaction pooling
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/openride_booking?prepareThreshold=0}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
@@ -17,6 +18,8 @@ spring:
       idle-timeout: 300000
       max-lifetime: 600000
       pool-name: BookingServiceHikariPool
+      data-source-properties:
+        prepareThreshold: 0
 
   jpa:
     hibernate:

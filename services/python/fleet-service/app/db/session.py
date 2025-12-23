@@ -34,13 +34,14 @@ class DatabaseManager:
     def initialize(self) -> None:
         """Initialize database engine and session factory"""
         async_url = get_async_database_url(settings.DATABASE_URL)
+        # Use NullPool for transaction pooler compatibility
+        # NullPool is required when using external transaction poolers (PgBouncer/Supabase)
+        # to prevent double pooling and connection state issues
         self._engine = create_async_engine(
             async_url,
+            poolclass=NullPool,
             echo=settings.LOG_LEVEL == 'DEBUG',
-            pool_size=settings.DB_POOL_SIZE,
-            max_overflow=settings.DB_MAX_OVERFLOW,
             pool_pre_ping=True,
-            pool_recycle=3600,
         )
         
         self._session_factory = async_sessionmaker(

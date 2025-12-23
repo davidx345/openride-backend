@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
 )
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.pool import NullPool
 
 Base = declarative_base()
 
@@ -24,12 +25,14 @@ class DatabaseManager:
             database_url: Database connection URL
             echo: Whether to echo SQL statements (for debugging)
         """
+        # Use NullPool for transaction pooler compatibility
+        # NullPool is required when using external transaction poolers (PgBouncer/Supabase)
+        # to prevent double pooling and connection state issues
         self.engine = create_async_engine(
             database_url,
             echo=echo,
+            poolclass=NullPool,
             pool_pre_ping=True,
-            pool_size=10,
-            max_overflow=20,
         )
         self.async_session_factory = async_sessionmaker(
             self.engine,
