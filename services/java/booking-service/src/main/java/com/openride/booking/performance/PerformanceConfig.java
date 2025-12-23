@@ -17,6 +17,9 @@ import javax.sql.DataSource;
  * - Statement caching
  * - Connection validation
  * - Leak detection
+ * 
+ * Note: For Supabase/PgBouncer, credentials are embedded in the JDBC URL,
+ * so username/password properties are optional with defaults.
  */
 @Configuration
 @Profile("production")
@@ -25,20 +28,25 @@ public class PerformanceConfig {
     @Value("${spring.datasource.url}")
     private String jdbcUrl;
 
-    @Value("${spring.datasource.username}")
+    @Value("${spring.datasource.username:}")
     private String username;
 
-    @Value("${spring.datasource.password}")
+    @Value("${spring.datasource.password:}")
     private String password;
 
     @Bean
     public DataSource dataSource() {
         HikariConfig config = new HikariConfig();
         
-        // Basic configuration
+        // Basic configuration - JDBC URL contains credentials for Supabase
         config.setJdbcUrl(jdbcUrl);
-        config.setUsername(username);
-        config.setPassword(password);
+        // Only set username/password if provided (Supabase embeds them in URL)
+        if (username != null && !username.isEmpty()) {
+            config.setUsername(username);
+        }
+        if (password != null && !password.isEmpty()) {
+            config.setPassword(password);
+        }
         config.setDriverClassName("org.postgresql.Driver");
 
         // Pool sizing
