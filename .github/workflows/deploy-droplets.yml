@@ -1,4 +1,4 @@
-name: Deploy to DigitalOcean Droplets
+name: Smart Deploy to DigitalOcean Droplets
 
 on:
   push:
@@ -6,115 +6,97 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository_owner }}
-
 jobs:
-  build-and-push-java:
-    name: Build Java Services
+  detect-changes:
+    name: Detect Changed Services
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    
-    strategy:
-      matrix:
-        service:
-          - auth-service
-          - user-service
-          - booking-service
-          - payments-service
-          - payouts-service
-          - ticketing-service
-          - admin-service
+    outputs:
+      java-services: ${{ steps.detect.outputs.java-services }}
+      python-services: ${{ steps.detect.outputs.python-services }}
+      deploy-java: ${{ steps.detect.outputs.deploy-java }}
+      deploy-python: ${{ steps.detect.outputs.deploy-python }}
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openride-${{ matrix.service }}
-          tags: |
-            type=sha,prefix={{branch}}-
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./services/java/${{ matrix.service }}/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-  build-and-push-python:
-    name: Build Python Services
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    
-    strategy:
-      matrix:
-        service:
-          - analytics-service
-          - driver-service
-          - fleet-service
-          - matchmaking-service
-          - notification-service
-          - search-service
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/openride-${{ matrix.service }}
-          tags: |
-            type=sha,prefix={{branch}}-
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./services/python/${{ matrix.service }}/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          fetch-depth: 2
+      
+      - name: Detect changed services
+        id: detect
+        run: |
+          # Get changed files
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # Manual trigger - deploy everything
+            CHANGED_FILES=$(git ls-files services/)
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+          
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          
+          # Java services
+          JAVA_SERVICES=""
+          for service in auth-service user-service booking-service payments-service payouts-service ticketing-service admin-service; do
+            if echo "$CHANGED_FILES" | grep -q "services/java/$service/"; then
+              JAVA_SERVICES="$JAVA_SERVICES $service"
+            fi
+          done
+          
+          # Check for shared Java changes (rebuild all Java services)
+          if echo "$CHANGED_FILES" | grep -q "shared/java-commons/"; then
+            JAVA_SERVICES="auth-service user-service booking-service payments-service payouts-service ticketing-service admin-service"
+          fi
+          
+          # Python services
+          PYTHON_SERVICES=""
+          for service in analytics-service driver-service fleet-service matchmaking-service notification-service search-service; do
+            if echo "$CHANGED_FILES" | grep -q "services/python/$service/"; then
+              PYTHON_SERVICES="$PYTHON_SERVICES $service"
+            fi
+          done
+          
+          # Check for shared Python changes (rebuild all Python services)
+          if echo "$CHANGED_FILES" | grep -q "shared/python-commons/"; then
+            PYTHON_SERVICES="analytics-service driver-service fleet-service matchmaking-service notification-service search-service"
+          fi
+          
+          # Check deployment configs
+          if echo "$CHANGED_FILES" | grep -q "deployment/docker-compose.java.yml"; then
+            JAVA_SERVICES="auth-service user-service booking-service payments-service payouts-service ticketing-service admin-service"
+          fi
+          if echo "$CHANGED_FILES" | grep -q "deployment/docker-compose.python.yml"; then
+            PYTHON_SERVICES="analytics-service driver-service fleet-service matchmaking-service notification-service search-service"
+          fi
+          
+          # Set outputs
+          echo "java-services=$JAVA_SERVICES" >> $GITHUB_OUTPUT
+          echo "python-services=$PYTHON_SERVICES" >> $GITHUB_OUTPUT
+          
+          if [ -n "$JAVA_SERVICES" ]; then
+            echo "deploy-java=true" >> $GITHUB_OUTPUT
+            echo "Java services to deploy: $JAVA_SERVICES"
+          else
+            echo "deploy-java=false" >> $GITHUB_OUTPUT
+            echo "No Java services changed"
+          fi
+          
+          if [ -n "$PYTHON_SERVICES" ]; then
+            echo "deploy-python=true" >> $GITHUB_OUTPUT
+            echo "Python services to deploy: $PYTHON_SERVICES"
+          else
+            echo "deploy-python=false" >> $GITHUB_OUTPUT
+            echo "No Python services changed"
+          fi
 
   deploy-java:
     name: Deploy Java Services
-    needs: build-and-push-java
+    needs: detect-changes
+    if: needs.detect-changes.outputs.deploy-java == 'true'
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Deploy to Java Droplet
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -125,20 +107,36 @@ jobs:
             cd ~/openride-backend
             git pull origin main
             cd deployment
-            export TAG=main
-            docker-compose -f docker-compose.java.yml pull
-            docker-compose -f docker-compose.java.yml up -d
+            
+            # Enable BuildKit for faster builds with caching
+            export DOCKER_BUILDKIT=1
+            export COMPOSE_DOCKER_CLI_BUILD=1
+            
+            # Get services to deploy
+            SERVICES="${{ needs.detect-changes.outputs.java-services }}"
+            
+            echo "Building and deploying Java services: $SERVICES"
+            
+            # Build only changed services with cache
+            for service in $SERVICES; do
+              echo "Building $service..."
+              docker-compose -f docker-compose.java.yml build --build-arg BUILDKIT_INLINE_CACHE=1 $service
+            done
+            
+            # Deploy changed services
+            docker-compose -f docker-compose.java.yml up -d --no-deps $SERVICES
+            
+            # Show status
+            echo "Deployment complete. Service status:"
             docker-compose -f docker-compose.java.yml ps
 
   deploy-python:
     name: Deploy Python Services
-    needs: build-and-push-python
+    needs: detect-changes
+    if: needs.detect-changes.outputs.deploy-python == 'true'
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Deploy to Python Droplet
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -149,7 +147,25 @@ jobs:
             cd ~/openride-backend
             git pull origin main
             cd deployment
-            export TAG=main
-            docker-compose -f docker-compose.python.yml pull
-            docker-compose -f docker-compose.python.yml up -d
+            
+            # Enable BuildKit for faster builds with caching
+            export DOCKER_BUILDKIT=1
+            export COMPOSE_DOCKER_CLI_BUILD=1
+            
+            # Get services to deploy
+            SERVICES="${{ needs.detect-changes.outputs.python-services }}"
+            
+            echo "Building and deploying Python services: $SERVICES"
+            
+            # Build only changed services with cache
+            for service in $SERVICES; do
+              echo "Building $service..."
+              docker-compose -f docker-compose.python.yml build --build-arg BUILDKIT_INLINE_CACHE=1 $service
+            done
+            
+            # Deploy changed services
+            docker-compose -f docker-compose.python.yml up -d --no-deps $SERVICES
+            
+            # Show status
+            echo "Deployment complete. Service status:"
             docker-compose -f docker-compose.python.yml ps
