@@ -122,6 +122,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     strategy:
+      fail-fast: false
       matrix:
         service: [auth-service, user-service, booking-service, payments-service, ticketing-service, payouts-service]
     
@@ -141,7 +142,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./services/java/${{ matrix.service }}
+          context: .
+          file: ./services/java/${{ matrix.service }}/Dockerfile
           push: true
           tags: |
             openride/${{ matrix.service }}:latest
