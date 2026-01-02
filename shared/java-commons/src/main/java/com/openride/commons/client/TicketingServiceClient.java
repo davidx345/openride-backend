@@ -1,6 +1,10 @@
 package com.openride.commons.client;
 
-import com.openride.commons.dto.ticketing.*;
+import com.openride.commons.dto.ticketing.MerkleProofResponse;
+import com.openride.commons.dto.ticketing.TicketGenerationRequest;
+import com.openride.commons.dto.ticketing.TicketResponse;
+import com.openride.commons.dto.ticketing.TicketVerificationRequest;
+import com.openride.commons.dto.ticketing.TicketVerificationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +25,7 @@ import org.springframework.web.client.RestTemplate;
 @Component
 public class TicketingServiceClient {
 
-    private static final Logger logger = LoggerFactory.getLogger(TicketingServiceClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(TicketingServiceClient.class);
 
     private final RestTemplate restTemplate;
     private final String ticketingServiceUrl;
@@ -42,7 +46,7 @@ public class TicketingServiceClient {
      */
     public TicketResponse generateTicket(TicketGenerationRequest request) {
         try {
-            logger.info("Generating ticket for booking: {}", request.getBookingId());
+            LOGGER.info("Generating ticket for booking: {}", request.getBookingId());
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -57,18 +61,18 @@ public class TicketingServiceClient {
             );
 
             TicketResponse ticketResponse = response.getBody();
-            logger.info("Ticket generated successfully: {}", ticketResponse.getTicketId());
+            LOGGER.info("Ticket generated successfully: {}", ticketResponse.getTicketId());
 
             return ticketResponse;
 
         } catch (HttpClientErrorException e) {
-            logger.error("Client error generating ticket: {}", e.getMessage());
+            LOGGER.error("Client error generating ticket: {}", e.getMessage());
             throw new TicketingServiceException("Failed to generate ticket: " + e.getMessage(), e);
         } catch (HttpServerErrorException e) {
-            logger.error("Server error generating ticket: {}", e.getMessage());
+            LOGGER.error("Server error generating ticket: {}", e.getMessage());
             throw new TicketingServiceException("Ticketing service unavailable: " + e.getMessage(), e);
         } catch (Exception e) {
-            logger.error("Unexpected error generating ticket", e);
+            LOGGER.error("Unexpected error generating ticket", e);
             throw new TicketingServiceException("Unexpected error generating ticket", e);
         }
     }
@@ -82,7 +86,7 @@ public class TicketingServiceClient {
      */
     public TicketResponse getTicket(String ticketId) {
         try {
-            logger.debug("Fetching ticket: {}", ticketId);
+            LOGGER.debug("Fetching ticket: {}", ticketId);
 
             ResponseEntity<TicketResponse> response = restTemplate.getForEntity(
                     ticketingServiceUrl + "/api/v1/tickets/" + ticketId,
@@ -92,10 +96,10 @@ public class TicketingServiceClient {
             return response.getBody();
 
         } catch (HttpClientErrorException e) {
-            logger.error("Ticket not found: {}", ticketId);
+            LOGGER.error("Ticket not found: {}", ticketId);
             throw new TicketingServiceException("Ticket not found: " + ticketId, e);
         } catch (Exception e) {
-            logger.error("Error fetching ticket", e);
+            LOGGER.error("Error fetching ticket", e);
             throw new TicketingServiceException("Error fetching ticket", e);
         }
     }
@@ -109,7 +113,7 @@ public class TicketingServiceClient {
      */
     public TicketVerificationResponse verifyTicket(TicketVerificationRequest request) {
         try {
-            logger.info("Verifying ticket: {} by driver: {}", request.getTicketId(), request.getDriverId());
+            LOGGER.info("Verifying ticket: {} by driver: {}", request.getTicketId(), request.getDriverId());
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -124,12 +128,12 @@ public class TicketingServiceClient {
             );
 
             TicketVerificationResponse verificationResponse = response.getBody();
-            logger.info("Ticket verification result: {}", verificationResponse.isValid());
+            LOGGER.info("Ticket verification result: {}", verificationResponse.isValid());
 
             return verificationResponse;
 
         } catch (Exception e) {
-            logger.error("Error verifying ticket", e);
+            LOGGER.error("Error verifying ticket", e);
             throw new TicketingServiceException("Error verifying ticket", e);
         }
     }
@@ -143,7 +147,7 @@ public class TicketingServiceClient {
      */
     public MerkleProofResponse getMerkleProof(String ticketId) {
         try {
-            logger.debug("Fetching Merkle proof for ticket: {}", ticketId);
+            LOGGER.debug("Fetching Merkle proof for ticket: {}", ticketId);
 
             ResponseEntity<MerkleProofResponse> response = restTemplate.getForEntity(
                     ticketingServiceUrl + "/api/v1/tickets/" + ticketId + "/proof",
@@ -153,10 +157,10 @@ public class TicketingServiceClient {
             return response.getBody();
 
         } catch (HttpClientErrorException e) {
-            logger.error("Merkle proof not found for ticket: {}", ticketId);
+            LOGGER.error("Merkle proof not found for ticket: {}", ticketId);
             throw new TicketingServiceException("Merkle proof not available", e);
         } catch (Exception e) {
-            logger.error("Error fetching Merkle proof", e);
+            LOGGER.error("Error fetching Merkle proof", e);
             throw new TicketingServiceException("Error fetching Merkle proof", e);
         }
     }
@@ -169,14 +173,14 @@ public class TicketingServiceClient {
      */
     public void cancelTicket(String ticketId) {
         try {
-            logger.info("Cancelling ticket: {}", ticketId);
+            LOGGER.info("Cancelling ticket: {}", ticketId);
 
             restTemplate.delete(ticketingServiceUrl + "/api/v1/tickets/" + ticketId);
 
-            logger.info("Ticket cancelled successfully: {}", ticketId);
+            LOGGER.info("Ticket cancelled successfully: {}", ticketId);
 
         } catch (Exception e) {
-            logger.error("Error cancelling ticket", e);
+            LOGGER.error("Error cancelling ticket", e);
             throw new TicketingServiceException("Error cancelling ticket", e);
         }
     }

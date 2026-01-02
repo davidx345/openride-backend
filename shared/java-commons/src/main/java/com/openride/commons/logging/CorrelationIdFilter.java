@@ -17,7 +17,7 @@ import java.util.UUID;
  * The correlation ID is added to MDC and can be used in log patterns.
  */
 public class CorrelationIdFilter extends OncePerRequestFilter {
-    private static final Logger logger = LoggerFactory.getLogger(CorrelationIdFilter.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CorrelationIdFilter.class);
     private static final String CORRELATION_ID_HEADER = "X-Correlation-ID";
     private static final String CORRELATION_ID_MDC_KEY = "correlationId";
 
@@ -40,7 +40,7 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
             // Add to response header
             response.setHeader(CORRELATION_ID_HEADER, correlationId);
 
-            logger.debug("Processing request with correlation ID: {}", correlationId);
+            LOGGER.debug("Processing request with correlation ID: {}", correlationId);
 
             filterChain.doFilter(request, response);
         } finally {

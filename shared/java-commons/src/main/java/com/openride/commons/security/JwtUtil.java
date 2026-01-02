@@ -20,7 +20,7 @@ import java.util.function.Function;
  * Provides methods to create, parse, and validate JWT tokens.
  */
 public class JwtUtil {
-    private static final Logger logger = LoggerFactory.getLogger(JwtUtil.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(JwtUtil.class);
 
     private final SecretKey secretKey;
     private final long accessTokenExpirationMinutes;
@@ -159,7 +159,7 @@ public class JwtUtil {
         try {
             return extractExpiration(token).before(new Date());
         } catch (Exception e) {
-            logger.error("Error checking token expiration", e);
+            LOGGER.error("Error checking token expiration", e);
             return true;
         }
     }
@@ -176,7 +176,7 @@ public class JwtUtil {
             final String extractedUserId = extractUserId(token);
             return (extractedUserId.equals(userId) && !isTokenExpired(token));
         } catch (Exception e) {
-            logger.error("Error validating token", e);
+            LOGGER.error("Error validating token", e);
             return false;
         }
     }
@@ -192,7 +192,7 @@ public class JwtUtil {
             extractAllClaims(token);
             return !isTokenExpired(token);
         } catch (Exception e) {
-            logger.error("Error validating token", e);
+            LOGGER.error("Error validating token", e);
             return false;
         }
     }
@@ -238,7 +238,7 @@ public class JwtUtil {
                     .getPayload();
             return claims.getSubject();
         } catch (Exception e) {
-            logger.error("Error extracting subject from token", e);
+            LOGGER.error("Error extracting subject from token", e);
             return null;
         }
     }
@@ -262,7 +262,7 @@ public class JwtUtil {
                     .getPayload();
             return claims.get(claimName, String.class);
         } catch (Exception e) {
-            logger.error("Error extracting claim {} from token", claimName, e);
+            LOGGER.error("Error extracting claim {} from token", claimName, e);
             return null;
         }
     }
