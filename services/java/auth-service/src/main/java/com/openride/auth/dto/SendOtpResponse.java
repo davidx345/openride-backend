@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SendOtpResponse {
 
+    private boolean success;
     private String message;
     private int expiresIn;
 }

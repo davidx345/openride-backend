@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
 public class AuthService {
 
     private final OtpRequestRepository otpRequestRepository;
-    private final SmsService smsService;
+    private final TermiiService termiiService;
     private final RateLimitService rateLimitService;
     private final StringRedisTemplate redisTemplate;
     private final AuthProperties authProperties;
@@ -75,7 +75,7 @@ public class AuthService {
 
         otpRequestRepository.save(otpRequest);
 
-        boolean smsSent = smsService.sendOtp(phoneNumber, otpCode);
+        boolean smsSent = termiiService.sendOtp(phoneNumber, otpCode);
         
         if (!smsSent) {
             log.error("Failed to send SMS to {}", phoneNumber);
@@ -85,9 +85,15 @@ public class AuthService {
             );
         }
 
+        // Log test mode info
+        if (termiiService.isTestMode()) {
+            log.info("TEST MODE: Use code 123456 to bypass OTP verification");
+        }
+
         log.info("OTP sent successfully to {}", phoneNumber);
 
         return SendOtpResponse.builder()
+            .success(true)
             .message("OTP sent successfully")
             .expiresIn(authProperties.getOtp().getExpirySeconds())
             .build();
@@ -139,13 +145,21 @@ public class AuthService {
 
         otpRequest.incrementAttempts();
 
-        if (!otpRequest.getOtpCode().equals(code)) {
+        // Check if code matches OR test mode bypass is active
+        boolean isValidCode = otpRequest.getOtpCode().equals(code) 
+            || termiiService.isTestModeBypass(code);
+
+        if (!isValidCode) {
             otpRequestRepository.save(otpRequest);
             throw new BusinessException(
                 "OTP_INVALID",
                 "Invalid OTP code",
                 HttpStatus.UNAUTHORIZED
             );
+        }
+
+        if (termiiService.isTestModeBypass(code)) {
+            log.info("TEST MODE: OTP bypass used for phone: {}", phoneNumber);
         }
 
         otpRequest.markAsVerified();
@@ -319,13 +333,30 @@ public class AuthService {
      * @param response response map from User Service
      * @return UserInfo object
      */
+    @SuppressWarnings("unchecked")
     private AuthResponse.UserInfo mapToUserInfo(Map<String, Object> response) {
-        return AuthResponse.UserInfo.builder()
-            .id(UUID.fromString((String) response.get("id")))
-            .phone((String) response.get("phone"))
-            .role((String) response.get("role"))
-            .fullName((String) response.get("fullName"))
-            .email((String) response.get("email"))
-            .build();
+        // Handle nested data wrapper if present
+        Map<String, Object> userData = response.containsKey("data") 
+            ? (Map<String, Object>) response.get("data") 
+            : response;
+
+        AuthResponse.UserInfo.UserInfoBuilder builder = AuthResponse.UserInfo.builder()
+            .id(UUID.fromString((String) userData.get("id")))
+            .phone((String) userData.get("phone"))
+            .role((String) userData.get("role"))
+            .fullName((String) userData.get("fullName"))
+            .email((String) userData.get("email"))
+            .kycStatus((String) userData.get("kycStatus"))
+            .isActive(userData.get("isActive") != null ? (Boolean) userData.get("isActive") : true);
+
+        // Handle rating if present
+        Object ratingObj = userData.get("rating");
+        if (ratingObj != null) {
+            if (ratingObj instanceof Number) {
+                builder.rating(new java.math.BigDecimal(ratingObj.toString()));
+            }
+        }
+
+        return builder.build();
     }
 }

@@ -31,17 +31,17 @@ public class UserResponse {
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private DriverProfileResponse driverProfile;
+    private CaptainProfileResponse captainProfile;
 
     /**
-     * Nested DTO for driver profile information.
+     * Nested DTO for captain profile information.
      * Excludes encrypted sensitive data.
      */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class DriverProfileResponse {
+    public static class CaptainProfileResponse {
         private UUID id;
         private String licensePhotoUrl;
         private String vehiclePhotoUrl;

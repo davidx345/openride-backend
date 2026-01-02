@@ -49,7 +49,7 @@ public class UserService {
             .orElseGet(() -> {
                 User newUser = User.builder()
                     .phone(request.getPhone())
-                    .role(request.getRole() != null ? request.getRole() : UserRole.RIDER)
+                    .role(request.getRole() != null ? request.getRole() : UserRole.PASSENGER)
                     .build();
                 return userRepository.save(newUser);
             });
@@ -129,14 +129,14 @@ public class UserService {
     }
 
     /**
-     * Upgrades a rider to driver role.
+     * Upgrades a passenger to captain role.
      *
      * @param userId user ID
      * @return updated user response
      */
     @Transactional
-    public UserResponse upgradeToDriver(UUID userId) {
-        log.info("Upgrading user to driver: {}", userId);
+    public UserResponse upgradeToCaptain(UUID userId) {
+        log.info("Upgrading user to captain: {}", userId);
 
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new BusinessException(
@@ -145,15 +145,15 @@ public class UserService {
                 HttpStatus.NOT_FOUND
             ));
 
-        if (user.isDriver()) {
+        if (user.isCaptain()) {
             throw new BusinessException(
-                "ALREADY_DRIVER",
-                "User is already a driver",
+                "ALREADY_CAPTAIN",
+                "User is already a captain",
                 HttpStatus.BAD_REQUEST
             );
         }
 
-        user.upgradeToDriver();
+        user.upgradeToCaptain();
         userRepository.save(user);
 
         DriverProfile driverProfile = DriverProfile.builder()
@@ -161,12 +161,12 @@ public class UserService {
             .build();
         driverProfileRepository.save(driverProfile);
 
-        log.info("User upgraded to driver successfully: {}", userId);
+        log.info("User upgraded to captain successfully: {}", userId);
         return mapToResponse(user);
     }
 
     /**
-     * Submits KYC documents for driver verification.
+     * Submits KYC documents for captain verification.
      *
      * @param userId user ID
      * @param request KYC documents request
@@ -183,18 +183,18 @@ public class UserService {
                 HttpStatus.NOT_FOUND
             ));
 
-        if (!user.isDriver()) {
+        if (!user.isCaptain()) {
             throw new BusinessException(
-                "NOT_A_DRIVER",
-                "User must be a driver to submit KYC documents",
+                "NOT_A_CAPTAIN",
+                "User must be a captain to submit KYC documents",
                 HttpStatus.BAD_REQUEST
             );
         }
 
         DriverProfile driverProfile = driverProfileRepository.findByUser(user)
             .orElseThrow(() -> new BusinessException(
-                "DRIVER_PROFILE_NOT_FOUND",
-                "Driver profile not found",
+                "CAPTAIN_PROFILE_NOT_FOUND",
+                "Captain profile not found",
                 HttpStatus.NOT_FOUND
             ));
 
@@ -208,10 +208,11 @@ public class UserService {
 
         driverProfileRepository.save(driverProfile);
 
-        user.updateKycStatus(KycStatus.PENDING);
+        // Legacy: Use CAPTAIN_PENDING for old KYC flow
+        user.updateKycStatus(KycStatus.CAPTAIN_PENDING);
         userRepository.save(user);
 
-        log.info("KYC documents submitted successfully for user: {}", userId);
+        log.info("KYC documents submitted successfully for captain: {}", userId);
         return mapToResponse(user);
     }
 
@@ -233,10 +234,10 @@ public class UserService {
                 HttpStatus.NOT_FOUND
             ));
 
-        if (!user.isDriver()) {
+        if (!user.isCaptain()) {
             throw new BusinessException(
-                "NOT_A_DRIVER",
-                "User must be a driver to update KYC status",
+                "NOT_A_CAPTAIN",
+                "User must be a captain to update KYC status",
                 HttpStatus.BAD_REQUEST
             );
         }
@@ -247,8 +248,8 @@ public class UserService {
         if (request.getNotes() != null) {
             DriverProfile driverProfile = driverProfileRepository.findByUser(user)
                 .orElseThrow(() -> new BusinessException(
-                    "DRIVER_PROFILE_NOT_FOUND",
-                    "Driver profile not found",
+                    "CAPTAIN_PROFILE_NOT_FOUND",
+                    "Captain profile not found",
                     HttpStatus.NOT_FOUND
                 ));
             driverProfile.setKycNotes(request.getNotes());
@@ -260,16 +261,16 @@ public class UserService {
     }
 
     /**
-     * Gets all drivers with pending KYC status.
+     * Gets all captains with pending KYC status.
      *
      * @return list of user responses
      */
-    public List<UserResponse> getPendingKycDrivers() {
-        log.info("Getting all drivers with pending KYC");
+    public List<UserResponse> getPendingKycCaptains() {
+        log.info("Getting all captains with pending KYC");
 
         List<User> users = userRepository.findByRoleAndKycStatus(
-            UserRole.DRIVER,
-            KycStatus.PENDING
+            UserRole.CAPTAIN,
+            KycStatus.CAPTAIN_PENDING
         );
 
         return users.stream()
@@ -296,9 +297,9 @@ public class UserService {
             .createdAt(user.getCreatedAt())
             .updatedAt(user.getUpdatedAt());
 
-        if (user.isDriver()) {
+        if (user.isCaptain()) {
             driverProfileRepository.findByUser(user).ifPresent(profile -> {
-                builder.driverProfile(UserResponse.DriverProfileResponse.builder()
+                builder.captainProfile(UserResponse.CaptainProfileResponse.builder()
                     .id(profile.getId())
                     .licensePhotoUrl(profile.getLicensePhotoUrl())
                     .vehiclePhotoUrl(profile.getVehiclePhotoUrl())

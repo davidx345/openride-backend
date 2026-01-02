@@ -63,6 +63,18 @@ openride:
     encryption:
       key: ${ENCRYPTION_KEY:your-32-char-encryption-key!!}  # AES-256 requires 32 bytes
       algorithm: AES/GCM/NoPadding
+  
+  # Dojah KYC verification service
+  dojah:
+    app-id: ${DOJAH_APP_ID:test-app-id}
+    secret-key: ${DOJAH_SECRET_KEY:test-secret-key}
+    base-url: ${DOJAH_BASE_URL:https://api.dojah.io}
+    test-mode: ${DOJAH_TEST_MODE:true}
+  
+  # Email service for affiliation verification
+  email:
+    from: ${EMAIL_FROM:noreply@openride.ng}
+    verification-url: ${VERIFICATION_BASE_URL:https://app.openride.ng/verify-email}
 
 springdoc:
   api-docs:

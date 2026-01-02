@@ -20,7 +20,7 @@ import java.util.UUID;
  */
 @Tag(name = "Bank Accounts", description = "Driver bank account management")
 @RestController
-@RequestMapping("/v1/bank-accounts")
+@RequestMapping("/v1/payouts/bank-accounts")
 @RequiredArgsConstructor
 public class BankAccountController {
 

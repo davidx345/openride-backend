@@ -22,15 +22,15 @@ import java.util.UUID;
  */
 @Tag(name = "Wallet & Earnings", description = "Driver wallet and earnings management")
 @RestController
-@RequestMapping("/v1/earnings")
+@RequestMapping("/v1/payouts")
 @RequiredArgsConstructor
 public class WalletController {
 
     private final WalletService walletService;
 
-    @Operation(summary = "Get wallet details", description = "Get driver wallet details including balances")
-    @GetMapping("/wallet")
-    public ResponseEntity<WalletResponse> getWallet(
+    @Operation(summary = "Get wallet balance", description = "Get driver wallet balance including available and pending amounts")
+    @GetMapping("/balance")
+    public ResponseEntity<WalletResponse> getBalance(
             @Parameter(description = "Driver ID", required = true)
             @RequestHeader("X-Driver-Id") UUID driverId
     ) {
@@ -39,8 +39,8 @@ public class WalletController {
     }
 
     @Operation(summary = "Get earnings summary", description = "Get comprehensive earnings summary for driver")
-    @GetMapping("/summary")
-    public ResponseEntity<EarningsSummaryResponse> getEarningsSummary(
+    @GetMapping("/earnings")
+    public ResponseEntity<EarningsSummaryResponse> getEarnings(
             @Parameter(description = "Driver ID", required = true)
             @RequestHeader("X-Driver-Id") UUID driverId
     ) {

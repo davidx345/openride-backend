@@ -51,12 +51,12 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
     @Builder.Default
-    private UserRole role = UserRole.RIDER;
+    private UserRole role = UserRole.PASSENGER;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "kyc_status", nullable = false)
     @Builder.Default
-    private KycStatus kycStatus = KycStatus.NONE;
+    private KycStatus kycStatus = KycStatus.UNVERIFIED;
 
     @Column(name = "rating", precision = 2, scale = 1)
     @Builder.Default
@@ -65,6 +65,9 @@ public class User {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;
+
+    @Column(name = "selfie_url", columnDefinition = "TEXT")
+    private String selfieUrl;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -75,12 +78,12 @@ public class User {
     private LocalDateTime updatedAt;
 
     /**
-     * Checks if user is a driver.
+     * Checks if user is a captain (driver).
      *
-     * @return true if role is DRIVER, false otherwise
+     * @return true if role is CAPTAIN, false otherwise
      */
-    public boolean isDriver() {
-        return UserRole.DRIVER.equals(this.role);
+    public boolean isCaptain() {
+        return UserRole.CAPTAIN.equals(this.role);
     }
 
     /**
@@ -93,19 +96,42 @@ public class User {
     }
 
     /**
-     * Checks if user has verified KYC status.
+     * Checks if user has completed identity verification.
      *
-     * @return true if KYC is verified, false otherwise
+     * @return true if identity is verified, false otherwise
      */
-    public boolean isKycVerified() {
-        return KycStatus.VERIFIED.equals(this.kycStatus);
+    public boolean isIdentityVerified() {
+        return this.kycStatus == KycStatus.IDENTITY_VERIFIED 
+            || this.kycStatus == KycStatus.FULLY_VERIFIED
+            || this.kycStatus == KycStatus.CAPTAIN_PENDING
+            || this.kycStatus == KycStatus.CAPTAIN_VERIFIED;
     }
 
     /**
-     * Upgrades user to driver role.
+     * Checks if user is fully verified (can book rides).
+     *
+     * @return true if fully verified, false otherwise
      */
-    public void upgradeToDriver() {
-        this.role = UserRole.DRIVER;
+    public boolean isFullyVerified() {
+        return this.kycStatus == KycStatus.FULLY_VERIFIED
+            || this.kycStatus == KycStatus.CAPTAIN_PENDING
+            || this.kycStatus == KycStatus.CAPTAIN_VERIFIED;
+    }
+
+    /**
+     * Checks if user is captain verified (can offer rides).
+     *
+     * @return true if captain verified, false otherwise
+     */
+    public boolean isCaptainVerified() {
+        return KycStatus.CAPTAIN_VERIFIED.equals(this.kycStatus);
+    }
+
+    /**
+     * Upgrades user to captain role.
+     */
+    public void upgradeToCaptain() {
+        this.role = UserRole.CAPTAIN;
     }
 
     /**

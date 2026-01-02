@@ -113,39 +113,39 @@ public class UserController {
     }
 
     /**
-     * Upgrades current user to driver role.
+     * Upgrades current user to captain role.
      *
      * @param authentication authentication object
      * @return API response with updated user data
      */
-    @PostMapping("/users/upgrade-to-driver")
+    @PostMapping("/users/upgrade-to-captain")
     @SecurityRequirement(name = "Bearer Authentication")
-    @Operation(summary = "Upgrade to Driver", description = "Upgrades rider to driver role")
-    public ResponseEntity<ApiResponse<UserResponse>> upgradeToDriver(Authentication authentication) {
+    @Operation(summary = "Upgrade to Captain", description = "Upgrades passenger to captain role")
+    public ResponseEntity<ApiResponse<UserResponse>> upgradeToCaptain(Authentication authentication) {
         String userId = authentication.getName();
-        log.info("Upgrading user to driver: {}", userId);
+        log.info("Upgrading user to captain: {}", userId);
 
-        UserResponse response = userService.upgradeToDriver(UUID.fromString(userId));
+        UserResponse response = userService.upgradeToCaptain(UUID.fromString(userId));
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     /**
-     * Submits KYC documents for driver verification.
+     * Submits KYC documents for captain verification.
      *
      * @param authentication authentication object
      * @param request KYC documents request
      * @return API response with updated user data
      */
-    @PostMapping("/drivers/kyc-documents")
+    @PostMapping("/captains/kyc-documents")
     @SecurityRequirement(name = "Bearer Authentication")
-    @Operation(summary = "Submit KYC Documents", description = "Submits KYC documents for verification")
+    @Operation(summary = "Submit KYC Documents", description = "Submits KYC documents for captain verification")
     public ResponseEntity<ApiResponse<UserResponse>> submitKycDocuments(
         Authentication authentication,
         @Valid @RequestBody KycDocumentsRequest request
     ) {
         String userId = authentication.getName();
-        log.info("Submitting KYC documents for user: {}", userId);
+        log.info("Submitting KYC documents for captain: {}", userId);
 
         UserResponse response = userService.submitKycDocuments(UUID.fromString(userId), request);
 

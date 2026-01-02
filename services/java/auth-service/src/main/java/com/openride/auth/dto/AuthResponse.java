@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -19,6 +21,7 @@ public class AuthResponse {
     private String accessToken;
     private String refreshToken;
     private UserInfo user;
+    private boolean isNewUser;
 
     /**
      * Inner class representing user information.
@@ -33,5 +36,10 @@ public class AuthResponse {
         private String role;
         private String fullName;
         private String email;
+        private String kycStatus;
+        private BigDecimal rating;
+        private boolean isActive;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
     }
 }

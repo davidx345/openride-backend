@@ -81,10 +81,15 @@ openride:
       otp-send-window-seconds: 3600
       otp-verify-per-phone: 10
       otp-verify-window-seconds: 3600
-  twilio:
-    account-sid: ${TWILIO_ACCOUNT_SID:}
-    auth-token: ${TWILIO_AUTH_TOKEN:}
-    phone-number: ${TWILIO_PHONE_NUMBER:}
+  # Termii SMS Configuration (Nigerian SMS Gateway)
+  termii:
+    api-key: ${TERMII_API_KEY:}
+    sender-id: ${TERMII_SENDER_ID:OpenRide}
+    message-type: plain
+    channel: generic
+    base-url: https://api.ng.termii.com/api
+    test-mode: ${TERMII_TEST_MODE:true}  # Set to false in production
+    test-otp-code: "123456"
   user-service:
     url: ${USER_SERVICE_URL:http://localhost:8082/api}
 
