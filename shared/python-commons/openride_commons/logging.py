@@ -9,9 +9,7 @@ from contextvars import ContextVar
 from typing import Optional
 
 # Context variable for correlation ID
-correlation_id_var: ContextVar[Optional[str]] = ContextVar(
-    "correlation_id", default=None
-)
+correlation_id_var: ContextVar[Optional[str]] = ContextVar("correlation_id", default=None)
 
 
 class CorrelationIdFilter(logging.Filter):
@@ -40,8 +38,7 @@ def setup_logging(
     """
     if log_format is None:
         log_format = (
-            "%(asctime)s - %(name)s - %(levelname)s - "
-            "[%(correlation_id)s] - %(message)s"
+            "%(asctime)s - %(name)s - %(levelname)s - " "[%(correlation_id)s] - %(message)s"
         )
 
     # Configure root logger

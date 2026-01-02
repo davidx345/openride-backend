@@ -32,9 +32,7 @@ class JwtUtil:
         self.access_token_expire_minutes = access_token_expire_minutes
         self.refresh_token_expire_days = refresh_token_expire_days
 
-    def generate_access_token(
-        self, user_id: str, phone: str, role: str
-    ) -> str:
+    def generate_access_token(self, user_id: str, phone: str, role: str) -> str:
         """
         Generate an access token for a user.
 
@@ -58,9 +56,7 @@ class JwtUtil:
             "exp": expire,
         }
 
-        encoded_jwt = jwt.encode(
-            to_encode, self.secret_key, algorithm=self.algorithm
-        )
+        encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
         return encoded_jwt
 
     def generate_refresh_token(self, user_id: str) -> str:
@@ -83,9 +79,7 @@ class JwtUtil:
             "exp": expire,
         }
 
-        encoded_jwt = jwt.encode(
-            to_encode, self.secret_key, algorithm=self.algorithm
-        )
+        encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
         return encoded_jwt
 
     def decode_token(self, token: str) -> dict:
@@ -102,9 +96,7 @@ class JwtUtil:
             JWTError: If token is invalid or expired
         """
         try:
-            payload = jwt.decode(
-                token, self.secret_key, algorithms=[self.algorithm]
-            )
+            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             return payload
         except JWTError as e:
             raise JWTError(f"Invalid token: {str(e)}")

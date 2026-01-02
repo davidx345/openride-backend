@@ -21,9 +21,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 
     CORRELATION_ID_HEADER = "X-Correlation-ID"
 
-    async def dispatch(
-        self, request: Request, call_next: Callable
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # Get correlation ID from header or generate new one
         correlation_id = request.headers.get(self.CORRELATION_ID_HEADER)
         if not correlation_id:
@@ -50,9 +48,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     Middleware that logs request and response details.
     """
 
-    async def dispatch(
-        self, request: Request, call_next: Callable
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         start_time = time.time()
 
         # Log request
@@ -68,10 +64,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         duration = time.time() - start_time
 
         # Log response
-        logger.info(
-            f"Response: {response.status_code} "
-            f"Duration: {duration:.3f}s"
-        )
+        logger.info(f"Response: {response.status_code} " f"Duration: {duration:.3f}s")
 
         # Add duration header
         response.headers["X-Response-Time"] = f"{duration:.3f}"

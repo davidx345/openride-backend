@@ -54,11 +54,7 @@ class SuccessResponse(BaseModel, Generic[T]):
         Returns:
             ApiResponse with success=true
         """
-        return ApiResponse(
-            success=True,
-            data=data,
-            meta=meta or MetaData()
-        )
+        return ApiResponse(success=True, data=data, meta=meta or MetaData())
 
 
 class ErrorResponse(BaseModel):
@@ -66,10 +62,7 @@ class ErrorResponse(BaseModel):
 
     @staticmethod
     def create(
-        error_code: str,
-        message: str,
-        details: dict = None,
-        meta: MetaData = None
+        error_code: str, message: str, details: dict = None, meta: MetaData = None
     ) -> ApiResponse[None]:
         """
         Creates an error response.
@@ -85,12 +78,8 @@ class ErrorResponse(BaseModel):
         """
         return ApiResponse(
             success=False,
-            error=ErrorDetails(
-                code=error_code,
-                message=message,
-                details=details
-            ),
-            meta=meta or MetaData()
+            error=ErrorDetails(code=error_code, message=message, details=details),
+            meta=meta or MetaData(),
         )
 
 
