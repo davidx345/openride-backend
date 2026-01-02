@@ -16,7 +16,7 @@ import java.time.Duration;
  */
 @Configuration
 public class RestClientConfig {
-    
+
     /**
      * RestTemplate bean for making HTTP requests to other services.
      * Configured with timeouts and error handling.
@@ -29,7 +29,7 @@ public class RestClientConfig {
                 .setReadTimeout(Duration.ofSeconds(10))
                 .build();
     }
-    
+
     /**
      * Circuit breaker for ticketing service calls.
      * Prevents cascading failures if ticketing service is down.
@@ -43,7 +43,7 @@ public class RestClientConfig {
                 .minimumNumberOfCalls(5) // Need 5 calls before calculating failure rate
                 .permittedNumberOfCallsInHalfOpenState(3) // Allow 3 test calls in half-open
                 .build();
-        
+
         CircuitBreakerRegistry registry = CircuitBreakerRegistry.of(config);
         return registry.circuitBreaker("ticketingService");
     }

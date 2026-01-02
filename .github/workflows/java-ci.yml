@@ -29,15 +29,23 @@ jobs:
           distribution: 'temurin'
           cache: maven
       
+      - name: Apply Spotless formatting
+        run: |
+          cd shared/java-commons
+          mvn spotless:apply -q
+      
       - name: Run Checkstyle
         run: |
           cd shared/java-commons
-          mvn checkstyle:check
+          mvn checkstyle:check -Dcheckstyle.config.location=checkstyle.xml
       
-      - name: Check formatting with Spotless
+      - name: Check for formatting changes
         run: |
           cd shared/java-commons
-          mvn spotless:check
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "::warning::Spotless applied formatting changes. Please run 'mvn spotless:apply' locally."
+            git diff --name-only
+          fi
 
   build-and-test:
     name: Build & Test

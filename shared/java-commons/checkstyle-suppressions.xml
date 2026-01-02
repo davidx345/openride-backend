@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+        "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+        "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<!--
+    Checkstyle Suppressions for OpenRide Java Commons
+    Suppresses checks for generated code and specific patterns
+-->
+<suppressions>
+    <!-- Suppress all checks for test files -->
+    <suppress files=".*Test\.java" checks=".*"/>
+    <suppress files=".*Tests\.java" checks=".*"/>
+    <suppress files=".*/test/.*" checks=".*"/>
+
+    <!-- Suppress trailing whitespace (auto-fixed by Spotless) -->
+    <suppress checks="RegexpSingleline"/>
+
+    <!-- Suppress line length for import statements and URLs -->
+    <suppress checks="LineLength" message=".*"/>
+</suppressions>

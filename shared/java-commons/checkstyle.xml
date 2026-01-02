@@ -1,0 +1,169 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+    OpenRide Checkstyle Configuration
+    Based on Google Java Style with relaxed rules for productivity
+-->
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <property name="severity" value="error"/>
+    <property name="fileExtensions" value="java"/>
+
+    <!-- Exclude generated files and test files from strict checking -->
+    <module name="BeforeExecutionExclusionFileFilter">
+        <property name="fileNamePattern" value="module\-info\.java$"/>
+    </module>
+
+    <!-- Suppress warnings for Lombok-generated code -->
+    <module name="SuppressWarningsFilter"/>
+
+    <!-- File length - allow up to 600 lines per file -->
+    <module name="FileLength">
+        <property name="max" value="600"/>
+        <property name="severity" value="warning"/>
+    </module>
+
+    <!-- Line length handled by Spotless/suppressions -->
+
+    <!-- No tab characters -->
+    <module name="FileTabCharacter">
+        <property name="eachLine" value="true"/>
+    </module>
+
+    <!-- Trailing whitespace handled by Spotless, not Checkstyle -->
+
+    <module name="TreeWalker">
+        <!-- Suppress warnings annotation support -->
+        <module name="SuppressWarningsHolder"/>
+
+        <!-- ================ NAMING CONVENTIONS ================ -->
+        
+        <!-- Class names: UpperCamelCase -->
+        <module name="TypeName">
+            <property name="format" value="^[A-Z][a-zA-Z0-9]*$"/>
+        </module>
+        
+        <!-- Method names: lowerCamelCase -->
+        <module name="MethodName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$"/>
+        </module>
+        
+        <!-- Variable names: lowerCamelCase -->
+        <module name="LocalVariableName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$"/>
+        </module>
+        
+        <!-- Parameter names: lowerCamelCase -->
+        <module name="ParameterName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$"/>
+        </module>
+        
+        <!-- Member variable names: lowerCamelCase -->
+        <module name="MemberName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$"/>
+        </module>
+        
+        <!-- Constant names: UPPER_SNAKE_CASE -->
+        <module name="ConstantName">
+            <property name="format" value="^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$"/>
+        </module>
+
+        <!-- ================ IMPORTS ================ -->
+        
+        <!-- No star imports -->
+        <module name="AvoidStarImport"/>
+        
+        <!-- No unused imports -->
+        <module name="UnusedImports"/>
+        
+        <!-- No redundant imports -->
+        <module name="RedundantImport"/>
+
+        <!-- ================ CODE QUALITY ================ -->
+        
+        <!-- Avoid empty blocks -->
+        <module name="EmptyBlock">
+            <property name="option" value="TEXT"/>
+            <property name="tokens" value="LITERAL_TRY, LITERAL_FINALLY, LITERAL_IF, LITERAL_ELSE, LITERAL_SWITCH"/>
+        </module>
+        
+        <!-- Avoid nested blocks -->
+        <module name="AvoidNestedBlocks"/>
+        
+        <!-- Need braces for if/else/for/while/do -->
+        <module name="NeedBraces"/>
+        
+        <!-- Left curly brace placement -->
+        <module name="LeftCurly"/>
+        
+        <!-- Right curly brace placement -->
+        <module name="RightCurly"/>
+
+        <!-- ================ WHITESPACE ================ -->
+        
+        <!-- Whitespace around operators -->
+        <module name="WhitespaceAround">
+            <property name="allowEmptyConstructors" value="true"/>
+            <property name="allowEmptyMethods" value="true"/>
+            <property name="allowEmptyTypes" value="true"/>
+            <property name="allowEmptyLoops" value="true"/>
+        </module>
+        
+        <!-- Generic whitespace -->
+        <module name="GenericWhitespace"/>
+        
+        <!-- No whitespace after certain tokens -->
+        <module name="NoWhitespaceAfter">
+            <property name="tokens" value="BNOT, DEC, DOT, INC, LNOT, UNARY_MINUS, UNARY_PLUS"/>
+        </module>
+        
+        <!-- No whitespace before certain tokens -->
+        <module name="NoWhitespaceBefore"/>
+
+        <!-- ================ MODIFIERS ================ -->
+        
+        <!-- Modifier order -->
+        <module name="ModifierOrder"/>
+        
+        <!-- Redundant modifiers -->
+        <module name="RedundantModifier"/>
+
+        <!-- ================ MISC ================ -->
+        
+        <!-- Array type style: String[] args, not String args[] -->
+        <module name="ArrayTypeStyle"/>
+        
+        <!-- Upper case L in long literals -->
+        <module name="UpperEll"/>
+        
+        <!-- One statement per line -->
+        <module name="OneStatementPerLine"/>
+        
+        <!-- Multiple variable declarations -->
+        <module name="MultipleVariableDeclarations"/>
+
+        <!-- ================ ANNOTATIONS ================ -->
+        
+        <!-- Annotation location -->
+        <module name="AnnotationLocation">
+            <property name="allowSamelineMultipleAnnotations" value="false"/>
+            <property name="allowSamelineSingleParameterlessAnnotation" value="true"/>
+            <property name="allowSamelineParameterizedAnnotation" value="false"/>
+        </module>
+
+        <!-- ================ DISABLED CHECKS ================ -->
+        <!-- The following are intentionally NOT included for developer productivity:
+             - JavadocMethod: Not requiring Javadoc on all methods
+             - JavadocVariable: Not requiring Javadoc on all variables
+             - JavadocType: Not requiring Javadoc on all types
+             - FinalParameters: Not requiring final on all parameters
+             - DesignForExtension: Not requiring design-for-extension pattern
+             - HiddenField: Allowing constructor params to hide fields (common pattern)
+             - MagicNumber: Allowing magic numbers (use constants when it makes sense)
+             - MissingJavadocMethod: Not requiring Javadoc on all methods
+        -->
+    </module>
+</module>

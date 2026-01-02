@@ -21,7 +21,7 @@ import java.util.function.Function;
  */
 public class JwtUtil {
     private static final Logger logger = LoggerFactory.getLogger(JwtUtil.class);
-    
+
     private final SecretKey secretKey;
     private final long accessTokenExpirationMinutes;
     private final long refreshTokenExpirationDays;
@@ -51,10 +51,10 @@ public class JwtUtil {
         Map<String, Object> claims = new HashMap<>();
         claims.put("phone", phone);
         claims.put("role", role);
-        
+
         Instant now = Instant.now();
         Instant expiration = now.plus(accessTokenExpirationMinutes, ChronoUnit.MINUTES);
-        
+
         return Jwts.builder()
                 .claims(claims)
                 .subject(userId)
@@ -73,7 +73,7 @@ public class JwtUtil {
     public String generateRefreshToken(String userId) {
         Instant now = Instant.now();
         Instant expiration = now.plus(refreshTokenExpirationDays, ChronoUnit.DAYS);
-        
+
         return Jwts.builder()
                 .subject(userId)
                 .issuedAt(Date.from(now))
