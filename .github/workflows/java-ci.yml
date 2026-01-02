@@ -13,6 +13,11 @@ on:
       - 'services/java/**'
       - 'shared/java-commons/**'
 
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 jobs:
   lint-and-format:
     name: Lint & Format Check
