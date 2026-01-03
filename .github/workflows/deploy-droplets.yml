@@ -111,7 +111,7 @@ jobs:
           host: ${{ secrets.JAVA_DROPLET_HOST }}
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          command_timeout: 30m
+          command_timeout: 60m
           script: |
             cd ~/openride-backend
             git pull origin main
